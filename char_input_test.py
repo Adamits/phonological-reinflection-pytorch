@@ -26,7 +26,7 @@ class Lang:
     def __init__(self):
         self.char2index = {}
         self.char2count = {}
-        self.index2char = {0: "SOS", 1: "EOS"}
+        self.index2char = {0: "<", 1: ">"}
         self.n_chars = 2  # Count SOS and EOS
 
     def addSentence(self, sentence):
