@@ -342,10 +342,6 @@ class AttnDecoderRNN(nn.Module):
 # words in the input sentence) and target tensor (indexes of the words in
 # the target sentence).
 #
-
-def replaceWordBoundaries(s):
-    return [x if x != " " else "#" for x in s]
-
 def indexesFromSentence(lang, sentence):
     return [lang.char2index[char] for char in replaceWordBoundaries(sentence)]
 
