@@ -26,7 +26,7 @@ def variablesFromPair(pair, char2i):
     target_variable = variableFromSentence(pair[1], char2i)
     return (input_variable, target_variable)
 
-def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, max_length):
+def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, max_length=50):
     """
     Compute the loss and make the parameter updates for a single sequence,
     where loss is the average of losses for each in the sequence
@@ -76,7 +76,7 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
 
     return loss.data[0] / target_length
 
-def trainIters(encoder, decoder, pairs, n_iters, print_every=25, learning_rate=0.01, max_length):
+def trainIters(encoder, decoder, pairs, n_iters, print_every=25, learning_rate=0.01, max_length=50):
     start = time.time()
     plot_losses = []
     print_loss_total = 0  # Reset every print_every

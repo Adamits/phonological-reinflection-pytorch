@@ -3,7 +3,7 @@ import argparse
 from encoder_decoder import *
 from data_prep import *
 
-def predict(encoder, decoder, sentence, max_length):
+def predict(encoder, decoder, sentence, max_length=50):
     input_variable = variableFromSentence(sentence)
     input_length = input_variable.size()[0]
     encoder_hidden = encoder.initHidden()
@@ -60,7 +60,7 @@ if __name__=='__main__':
         decoder = decoder.cuda()
 
     for isentence, osentence in test_data.pairs:
-        pred, attentions = predicts(encoder, decoder, isentence, MAX_LENGTH)
+        pred, attentions = predicts(encoder, decoder, isentence)
         print("===============")
         print("ATTENTION")
         print(attentions)
