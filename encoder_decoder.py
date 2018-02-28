@@ -6,10 +6,6 @@ import torch.nn.functional as F
 
 use_cuda = torch.cuda.is_available()
 
-# Remember to add this to char2i
-EOS="<EOS>"
-EOS_index=0
-
 
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size):
@@ -75,53 +71,3 @@ class AttnDecoderRNN(nn.Module):
             return result.cuda()
         else:
             return result
-
-def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, max_length):
-    """
-    Compute the loss and make the parameter updates for a single sequence,
-    where loss is the average of losses for each in the sequence
-    """
-    encoder_hidden = encoder.initHidden()
-
-    encoder_optimizer.zero_grad()
-    decoder_optimizer.zero_grad()
-
-    input_length = input_variable.size()[0]
-    target_length = target_variable.size()[0]
-
-    encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
-    encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
-
-    loss = 0
-
-    for ei in range(input_length):
-        encoder_output, encoder_hidden = encoder(
-            input_variable[ei], encoder_hidden)
-        encoder_outputs[ei] = encoder_output[0][0]
-
-    decoder_input = Variable(torch.LongTensor([[EOS_index]]))
-    decoder_input = decoder_input.cuda() if use_cuda else decoder_input
-
-    decoder_hidden = encoder_hidden
-
-    for di in range(target_length):
-        decoder_output, decoder_hidden, decoder_attention = decoder(
-            decoder_input, decoder_hidden, encoder_outputs)
-        # I believe that this is just taking the index with the highest
-        # value in the softmax distribution
-        topv, topi = decoder_output.data.topk(1)
-        ni = topi[0][0]
-
-        decoder_input = Variable(torch.LongTensor([[ni]]))
-        decoder_input = decoder_input.cuda() if use_cuda else decoder_input
-
-        loss += loss_function(decoder_output, target_variable[di])
-        if ni == EOS_index:
-            break
-
-    loss.backward()
-
-    encoder_optimizer.step()
-    decoder_optimizer.step()
-
-    return loss.data[0] / target_length
