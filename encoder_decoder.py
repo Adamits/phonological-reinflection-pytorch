@@ -8,6 +8,7 @@ use_cuda = torch.cuda.is_available()
 
 # Remember to add this to char2i
 EOS="<EOS>"
+EOS_index=0
 
 
 class EncoderRNN(nn.Module):
@@ -98,7 +99,7 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
             input_variable[ei], encoder_hidden)
         encoder_outputs[ei] = encoder_output[0][0]
 
-    decoder_input = Variable(torch.LongTensor([[SOS_token]]))
+    decoder_input = Variable(torch.LongTensor([[EOS_index]]))
     decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 
     decoder_hidden = encoder_hidden
@@ -115,7 +116,7 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
         decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 
         loss += loss_function(decoder_output, target_variable[di])
-        if ni == EOS_token:
+        if ni == EOS_index:
             break
 
     loss.backward()
@@ -124,41 +125,3 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
     decoder_optimizer.step()
 
     return loss.data[0] / target_length
-
-def evaluate(encoder, decoder, sentence, max_length):
-    input_variable = variableFromSentence(inp, sentence)
-    input_length = input_variable.size()[0]
-    encoder_hidden = encoder.initHidden()
-
-    encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
-    encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
-
-    for ei in range(input_length):
-        encoder_output, encoder_hidden = encoder(input_variable[ei],
-                                                 encoder_hidden)
-        encoder_outputs[ei] = encoder_outputs[ei] + encoder_output[0][0]
-
-    decoder_input = Variable(torch.LongTensor([[SOS_token]]))  # SOS
-    decoder_input = decoder_input.cuda() if use_cuda else decoder_input
-
-    decoder_hidden = encoder_hidden
-
-    decoded_words = []
-    decoder_attentions = torch.zeros(max_length, max_length)
-
-    for di in range(max_length):
-        decoder_output, decoder_hidden, decoder_attention = decoder(
-            decoder_input, decoder_hidden, encoder_outputs)
-        decoder_attentions[di] = decoder_attention.data
-        topv, topi = decoder_output.data.topk(1)
-        ni = topi[0][0]
-        if ni == EOS_token:
-            decoded_words.append('<EOS>')
-            break
-        else:
-            decoded_words.append(outp.index2word[ni])
-
-            decoder_input = Variable(torch.LongTensor([[ni]]))
-            decoder_input = decoder_input.cuda() if use_cuda else decoder_input
-
-    return decoded_words, decoder_attentions[:di + 1]
