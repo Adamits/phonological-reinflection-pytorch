@@ -45,6 +45,8 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
     loss = 0
 
     for ei in range(input_length):
+        print(input_variable[ei])
+        print(encoder_hidden)
         encoder_output, encoder_hidden = encoder(
             input_variable[ei], encoder_hidden)
         encoder_outputs[ei] = encoder_output[0][0]
@@ -76,14 +78,12 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
 
     return loss.data[0] / target_length
 
-def trainIters(encoder, decoder, pairs, n_iters, print_every=25, learning_rate=0.01, max_length=50):
-    start = time.time()
-    plot_losses = []
+def trainIters(encoder, decoder, pairs, char2i, n_iters, print_every=25, learning_rate=0.01, max_length=50):
     print_loss_total = 0  # Reset every print_every
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-    training_pairs = [variablesFromPair(random.choice(pairs))
+    training_pairs = [variablesFromPair(random.choice(pairs), char2i)
                       for i in range(n_iters)]
     loss_function = nn.NLLLoss()
 
@@ -111,7 +111,7 @@ if __name__=='__main__':
 
     args = parser.parse_args()
     hidden_size = 500
-    data = DataPrep(args['filename'])
+    data = DataPrep(args.filename)
     encoder1 = EncoderRNN(len(data.input_vocab), hidden_size)
     attn_decoder1 = AttnDecoderRNN(hidden_size, len(data.output_vocab), dropout_p=0.1)
 
@@ -119,7 +119,7 @@ if __name__=='__main__':
         encoder1 = encoder1.cuda()
         attn_decoder1 = attn_decoder1.cuda()
 
-    trainIters(encoder1, attn_decoder1, data.pairs, 75000, print_every=5000)
+    trainIters(encoder1, attn_decoder1, data.pairs, data.char2i, 75000, print_every=5000)
 
-    torch.save(encoder1.state_dict(), "./models/%s-encoder" % args['lang'])
-    torch.save(attn_decoder1.state_dict(), "./models/%s-decoder" % args['lang'])
+    torch.save(encoder1.state_dict(), "./models/%s-encoder" % args.lang)
+    torch.save(attn_decoder1.state_dict(), "./models/%s-decoder" % args.lang)

@@ -8,14 +8,14 @@ EOS="<EOS>"
 EOS_index=0
 
 class DataPrep:
-    def __init__(fn):
-    self.char2i = {EOS: EOS_index}
-    self.pairs self.input_vocab, self.output_vocab = prepare_data(fn)
-    # Assign indices for all chars (or tags) from both vocabs,
-    # starting at 1 to account for 0: EOS
-    self.char2i = {c: i+1 for c in self.input_vocab + self.output_vocab}
+    def __init__(self, fn):
+        self.char2i = {EOS: EOS_index}
+        self.pairs, self.input_vocab, self.output_vocab = self.prepareData(fn)
+        # Assign indices for all chars (or tags) from both vocabs,
+        # starting at 1 to account for 0: EOS
+        self.char2i = {c: i+1 for i, c in enumerate(self.input_vocab + self.output_vocab)}
 
-    def readData(fn):
+    def readData(self, fn):
         print("Reading lines...")
 
         # Read the file and split into lines
@@ -28,21 +28,27 @@ class DataPrep:
 
         return pairs
 
-    def prepareData(fn):
-        pairs = readData(fn)
+    def prepareData(self, fn):
+        pairs = self.readData(fn)
         print("Counting chars...")
+        input_vocab = []
+        output_vocab = []
         for pair in pairs:
             inp, outp = pair
-            input_vocab.append([c for c in inp if inp not in input_vocab])
-            output_vocab.append([c for c in inp if outp not in output_vocab])
+            for c in inp:
+                if c not in input_vocab:
+                    input_vocab.append(c)
+            for c in outp:
+                if c not in output_vocab:
+                    output_vocab.append(c)
 
         return pairs, input_vocab, output_vocab
 
 class DataPrepPhones(DataPrep):
-    def __init__():
+    def __init__(self):
         super(DataPrepPhones, self).__init__()
 
 class DataPrepPhoneFeatures(DataPrep):
-    def __init__():
+    def __init__(self):
         super(DataPrepPhoneFeatures, self).__init__()
 
