@@ -7,13 +7,15 @@ from torch.autograd import Variable
 EOS="<EOS>"
 EOS_index=0
 
+use_cuda = False
+
 class DataPrep:
     def __init__(self, fn):
         self.char2i = {EOS: EOS_index}
         self.pairs, self.input_vocab, self.output_vocab = self.prepareData(fn)
         # Assign indices for all chars (or tags) from both vocabs,
         # starting at 1 to account for 0: EOS
-        self.char2i = {c: i+1 for i, c in enumerate(self.input_vocab + self.output_vocab)}
+        self.char2i = {c: i+1 for i, c in enumerate(list(set(self.input_vocab + self.output_vocab)))}
 
     def readData(self, fn):
         print("Reading lines...")
@@ -52,3 +54,20 @@ class DataPrepPhoneFeatures(DataPrep):
     def __init__(self):
         super(DataPrepPhoneFeatures, self).__init__()
 
+def indexesFromSentence(sentence, char2i):
+    return [char2i[c] for c in sentence]
+
+def variableFromSentence(sentence, char2i):
+    indexes = indexesFromSentence(sentence, char2i)
+    indexes.insert(0, EOS_index)
+    indexes.append(EOS_index)
+    result = Variable(torch.LongTensor(indexes).view(-1, 1))
+    if use_cuda:
+        return result.cuda()
+    else:
+        return result
+
+def variablesFromPair(pair, char2i):
+    input_variable = variableFromSentence(pair[0], char2i)
+    target_variable = variableFromSentence(pair[1], char2i)
+    return (input_variable, target_variable)

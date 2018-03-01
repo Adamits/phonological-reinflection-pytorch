@@ -4,7 +4,7 @@ from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
 
-use_cuda = torch.cuda.is_available()
+use_cuda = False#torch.cuda.is_available()
 
 
 class EncoderRNN(nn.Module):
@@ -52,7 +52,9 @@ class AttnDecoderRNN(nn.Module):
         embedded = self.dropout(embedded)
 
         attn_weights = F.softmax(
-            self.attn(torch.cat((embedded[0], hidden[0]), 1)), dim=1)
+            self.attn(torch.cat((embedded[0], hidden[0]), 1)))
+
+        # ERROR HERE, WE EXPECT ENCODER OUTPUTS TO HAVE 2 DIMS, BUT IT HAS 3 IN EVAL (although not in train)
         attn_applied = torch.bmm(attn_weights.unsqueeze(0),
                                  encoder_outputs.unsqueeze(0))
 
@@ -62,7 +64,7 @@ class AttnDecoderRNN(nn.Module):
         output = F.relu(output)
         output, hidden = self.gru(output, hidden)
 
-        output = F.log_softmax(self.out(output[0]), dim=1)
+        output = F.log_softmax(self.out(output[0]))
         return output, hidden, attn_weights
 
     def initHidden(self):

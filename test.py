@@ -3,8 +3,8 @@ import argparse
 from encoder_decoder import *
 from data_prep import *
 
-def predict(encoder, decoder, sentence, max_length=50):
-    input_variable = variableFromSentence(sentence)
+def predict(encoder, decoder, sentence, char2i, max_length=50):
+    input_variable = variableFromSentence(sentence, char2i)
     input_length = input_variable.size()[0]
     encoder_hidden = encoder.initHidden()
 
@@ -19,12 +19,11 @@ def predict(encoder, decoder, sentence, max_length=50):
         decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 
         decoder_hidden = encoder_hidden
-
         decoded_words = []
         decoder_attentions = torch.zeros(max_length, max_length)
 
         for di in range(max_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_output)
+            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
             decoder_attentions[di] = decoder_attention.data
             topv, topi = decoder_output.data.topk(1)
             ni = topi[0][0]
@@ -44,26 +43,24 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Test the encoder decoder with reinflection data')
     parser.add_argument('filename', metavar='fn',
                         help='the filename of the file to train on')
-    parser.add_argument('encoderModel', metavar='model',
+    parser.add_argument('encoderModel', metavar='encoderModel',
                         help='The encoder that we are evaluating on')
-    parser.add_argument('decoderModel', metavar='model',
+    parser.add_argument('decoderModel', metavar='decoderModel',
                         help='The decoder that we are evaluating on')
 
     args = parser.parse_args()
     hidden_size = 500
-    test_data = DataPrep(args['filename'])
-    encoder = torch.load('./models/' % args['encoderModel'])
-    decoder = torch.load('./models/' % args['decoderModel'])
-
+    test_data = DataPrep(args.filename)
+    encoder = torch.load(args.encoderModel)
+    decoder = torch.load(args.decoderModel)
+    
     if use_cuda:
         encoder = encoder.cuda()
-        decoder = decoder.cuda()
+v        decoder = decoder.cuda()
 
     for isentence, osentence in test_data.pairs:
-        pred, attentions = predicts(encoder, decoder, isentence)
+        pred, attentions = predict(encoder, decoder, isentence, test_data.char2i)
         print("===============")
-        print("ATTENTION")
-        print(attentions)
         print("PREDICTION")
         print(pred)
         print("GOLD")
