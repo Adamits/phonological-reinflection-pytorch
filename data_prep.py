@@ -59,7 +59,6 @@ def indexesFromSentence(sentence, char2i):
 
 def variableFromSentence(sentence, char2i):
     indexes = indexesFromSentence(sentence, char2i)
-    indexes.insert(0, EOS_index)
     indexes.append(EOS_index)
     result = Variable(torch.LongTensor(indexes).view(-1, 1))
     if use_cuda:

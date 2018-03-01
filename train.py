@@ -52,7 +52,7 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
         decoder_input = Variable(torch.LongTensor([[ni]]))
         decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 
-        
+
         loss += loss_function(decoder_output, target_variable[di])
         if ni == EOS_index:
             break
@@ -100,11 +100,7 @@ if __name__=='__main__':
     input_size = len(data.char2i.keys())
     encoder1 = EncoderRNN(input_size+1, hidden_size)
     attn_decoder1 = AttnDecoderRNN(hidden_size, input_size+1, dropout_p=0.4)
-    
-    print(len(data.char2i.keys()))
-    print(encoder1.embedding)
-    print(attn_decoder1.embedding)
-    print(list(data.char2i.keys())[-1])
+
     if use_cuda:
         encoder1 = encoder1.cuda()
         attn_decoder1 = attn_decoder1.cuda()
