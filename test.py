@@ -11,6 +11,8 @@ def predict(encoder, decoder, sentence, char2i, max_length=50):
     encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
     encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
 
+    EOS_count = 0
+
     for ei in range(input_length):
         encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
         encoder_outputs[ei] = encoder_outputs[ei] + encoder_output[0][0]
@@ -29,7 +31,9 @@ def predict(encoder, decoder, sentence, char2i, max_length=50):
             ni = topi[0][0]
             if ni == EOS_index:
                 decoded_words.append(EOS)
-                break
+                EOS_count += 1
+                if EOS_cont = 2:
+                    break
             else:
                 decoded_words.append(outp.index2word[ni])
 
@@ -53,7 +57,7 @@ if __name__=='__main__':
     test_data = DataPrep(args.filename)
     encoder = torch.load(args.encoderModel)
     decoder = torch.load(args.decoderModel)
-    
+
     if use_cuda:
         encoder = encoder.cuda()
 v        decoder = decoder.cuda()
