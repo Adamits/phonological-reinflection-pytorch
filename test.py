@@ -1,9 +1,11 @@
 import argparse
+import pickle
 
 from encoder_decoder import *
 from data_prep import *
 
 def predict(encoder, decoder, sentence, char2i, max_length=50):
+    i2char = {i: w for w, i in char2i.items()}
     input_variable = variableFromSentence(sentence, char2i)
     input_length = input_variable.size()[0]
     encoder_hidden = encoder.initHidden()
@@ -32,10 +34,10 @@ def predict(encoder, decoder, sentence, char2i, max_length=50):
             if ni == EOS_index:
                 decoded_words.append(EOS)
                 EOS_count += 1
-                if EOS_cont = 2:
+                if EOS_count == 2:
                     break
             else:
-                decoded_words.append(outp.index2word[ni])
+                decoded_words.append(i2char[ni])
 
                 decoder_input = Variable(torch.LongTensor([[ni]]))
                 decoder_input = decoder_input.cuda() if use_cuda else decoder_input
@@ -47,6 +49,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Test the encoder decoder with reinflection data')
     parser.add_argument('filename', metavar='fn',
                         help='the filename of the file to train on')
+    parser.add_argument('char2i', metavar='char2i', help='pkl file of the char2i dict from training')
     parser.add_argument('encoderModel', metavar='encoderModel',
                         help='The encoder that we are evaluating on')
     parser.add_argument('decoderModel', metavar='decoderModel',
@@ -55,15 +58,18 @@ if __name__=='__main__':
     args = parser.parse_args()
     hidden_size = 500
     test_data = DataPrep(args.filename)
+    char2i_file = open(args.char2i, 'rb')
+
+    train_char2i = pickle.load(char2i_file)
     encoder = torch.load(args.encoderModel)
     decoder = torch.load(args.decoderModel)
 
     if use_cuda:
         encoder = encoder.cuda()
-v        decoder = decoder.cuda()
+        decoder = decoder.cuda()
 
     for isentence, osentence in test_data.pairs:
-        pred, attentions = predict(encoder, decoder, isentence, test_data.char2i)
+        pred, attentions = predict(encoder, decoder, isentence, train_char2i)
         print("===============")
         print("PREDICTION")
         print(pred)

@@ -1,5 +1,6 @@
 import random
 import argparse
+import pickle
 
 from encoder_decoder import *
 from data_prep import *
@@ -29,11 +30,7 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
     loss = 0
 
     for ei in range(input_length):
-        try:
-            encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
-        except:
-            print(input_variable[ei])
-            raise Exception("doh")
+        encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
         encoder_outputs[ei] = encoder_output[0][0]
 
     decoder_input = Variable(torch.LongTensor([[EOS_index]]))
@@ -52,7 +49,8 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
         decoder_input = Variable(torch.LongTensor([[ni]]))
         decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 
-
+        print(ni)
+        
         loss += loss_function(decoder_output, target_variable[di])
         if ni == EOS_index:
             break
@@ -101,11 +99,16 @@ if __name__=='__main__':
     encoder1 = EncoderRNN(input_size+1, hidden_size)
     attn_decoder1 = AttnDecoderRNN(hidden_size, input_size+1, dropout_p=0.4)
 
+    char2i = data.char2i
+    # Store the character dictionary for use in testing
+    char_output = open('./models/%s-char2i.pkl' % args.lang, 'wb')
+    pickle.dump(char2i, char_output)
+    
     if use_cuda:
         encoder1 = encoder1.cuda()
         attn_decoder1 = attn_decoder1.cuda()
 
-    trainIters(encoder1, attn_decoder1, data.pairs, data.char2i, 75000, print_every=100)
+    trainIters(encoder1, attn_decoder1, data.pairs, char2i, 75000, print_every=100)
 
     torch.save(encoder1, "./models/%s-encoder" % args.lang)
     torch.save(attn_decoder1, "./models/%s-decoder" % args.lang)
