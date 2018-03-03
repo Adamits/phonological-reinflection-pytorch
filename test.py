@@ -17,6 +17,7 @@ def predict(encoder, decoder, sentence, char2i, max_length=50):
 
     for ei in range(input_length):
         encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
+        # Not sure why we sum them?
         encoder_outputs[ei] = encoder_outputs[ei] + encoder_output[0][0]
 
         decoder_input = Variable(torch.LongTensor([[EOS_index]]))
@@ -33,12 +34,9 @@ def predict(encoder, decoder, sentence, char2i, max_length=50):
             ni = topi[0][0]
             if ni == EOS_index:
                 decoded_words.append(EOS)
-                EOS_count += 1
-                if EOS_count == 2:
-                    break
+                break
             else:
                 decoded_words.append(i2char[ni])
-
                 decoder_input = Variable(torch.LongTensor([[ni]]))
                 decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 

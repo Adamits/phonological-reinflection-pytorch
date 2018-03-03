@@ -37,20 +37,24 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
     decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 
     decoder_hidden = encoder_hidden
-
-    for di in range(target_length):
+    # SKIP THE FIRST ONE IN THE TARGET AS IT IS EOS AND WE INITIALIZE WITH EOS
+    print("TARGET")
+    print(target_variable)
+    for di in range(1, target_length-1):
         decoder_output, decoder_hidden, decoder_attention = decoder(
             decoder_input, decoder_hidden, encoder_outputs)
-        # I believe that this is just taking the index with the highest
-        # value in the softmax distribution
+
         topv, topi = decoder_output.data.topk(1)
         ni = topi[0][0]
 
         decoder_input = Variable(torch.LongTensor([[ni]]))
         decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 
+        print("PRED")
         print(ni)
-        
+        print("GOLD")
+        print(target_variable[di])
+
         loss += loss_function(decoder_output, target_variable[di])
         if ni == EOS_index:
             break
