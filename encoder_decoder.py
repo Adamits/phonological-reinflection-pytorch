@@ -4,7 +4,7 @@ from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
 
-use_cuda = False#torch.cuda.is_available()
+use_cuda = torch.cuda.is_available()
 
 
 class EncoderRNN(nn.Module):

@@ -11,8 +11,6 @@ from torch.autograd import Variable
 EOS="<EOS>"
 EOS_index=0
 
-use_cuda = False
-
 class DataPrep:
     def __init__(self, fn):
         self.fn = fn
@@ -95,7 +93,7 @@ class DataPrepPhoneFeatures(DataPrep):
 def indexesFromSentence(sentence, char2i):
     return [char2i[c] for c in sentence]
 
-def variableFromSentence(sentence, char2i):
+def variableFromSentence(sentence, char2i, use_cuda):
     indexes = indexesFromSentence(sentence, char2i)
     indexes = [EOS_index] + indexes + [EOS_index]
     result = Variable(torch.LongTensor(indexes).view(-1, 1))

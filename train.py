@@ -5,13 +5,11 @@ import pickle
 from encoder_decoder import *
 from data_prep import *
 
-use_cuda = False#torch.cuda.is_available()
-
 EOS="<EOS>"
 EOS_index=0
 
 
-def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, max_length=50):
+def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function,use_cuda,  max_length=50):
     """
     Compute the loss and make the parameter updates for a single sequence,
     where loss is the average of losses for each in the sequence
@@ -51,7 +49,8 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
         print("PRED")
         print(ni)
         print("GOLD")
-        print(target_variable[di])
+        print(target_variable[di].data[0])
+        print("=========================")
 
         loss += loss_function(decoder_output, target_variable[di])
         if ni == EOS_index:
@@ -64,7 +63,7 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
 
     return loss.data[0] / target_length
 
-def trainIters(encoder, decoder, pairs, char2i, n_iters, print_every=100, learning_rate=0.01, max_length=50):
+def trainIters(encoder, decoder, pairs, char2i, n_iters, use_cuda, print_every=100, learning_rate=0.01, max_length=50):
     print_loss_total = 0  # Reset every print_every
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
@@ -75,11 +74,12 @@ def trainIters(encoder, decoder, pairs, char2i, n_iters, print_every=100, learni
 
     for iter in range(1, n_iters + 1):
         training_pair = training_pairs[iter - 1]
+        
         input_variable = training_pair[0]
         target_variable = training_pair[1]
 
         loss = train(input_variable, target_variable, encoder,
-                     decoder, encoder_optimizer, decoder_optimizer, loss_function, max_length)
+                     decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda, max_length)
         print_loss_total += loss
 
         if iter % print_every == 0:
@@ -93,6 +93,7 @@ if __name__=='__main__':
                         help='the filename of the file to train on')
     parser.add_argument('lang', metavar='lang',
                         help='The language that we are training on')
+    parser.add_argument('--gpu',action='store_true',  help='tell the system to use a gpu if you have cuda set up')
 
     args = parser.parse_args()
     hidden_size = 500
@@ -106,11 +107,13 @@ if __name__=='__main__':
     char_output = open('./models/%s-char2i.pkl' % args.lang, 'wb')
     pickle.dump(char2i, char_output)
 
+    use_cuda = args.gpu
+    
     if use_cuda:
         encoder1 = encoder1.cuda()
         attn_decoder1 = attn_decoder1.cuda()
 
-    trainIters(encoder1, attn_decoder1, data.pairs, char2i, 75000, print_every=100)
+    trainIters(encoder1, attn_decoder1, data.pairs, char2i, 75000, use_cuda,  print_every=100)
 
     torch.save(encoder1, "./models/%s-encoder" % args.lang)
     torch.save(attn_decoder1, "./models/%s-decoder" % args.lang)
