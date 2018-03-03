@@ -102,7 +102,7 @@ def variableFromSentence(sentence, char2i, use_cuda):
     else:
         return result
 
-def variablesFromPair(pair, char2i):
-    input_variable = variableFromSentence(pair[0], char2i)
-    target_variable = variableFromSentence(pair[1], char2i)
+def variablesFromPair(pair, char2i, use_cuda):
+    input_variable = variableFromSentence(pair[0], char2i, use_cuda)
+    target_variable = variableFromSentence(pair[1], char2i, use_cuda)
     return (input_variable, target_variable)

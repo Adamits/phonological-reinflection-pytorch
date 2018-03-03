@@ -9,12 +9,12 @@ EOS="<EOS>"
 EOS_index=0
 
 
-def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function,use_cuda,  max_length=50):
+def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda,  max_length=50):
     """
     Compute the loss and make the parameter updates for a single sequence,
     where loss is the average of losses for each in the sequence
     """
-    encoder_hidden = encoder.initHidden()
+    encoder_hidden = encoder.initHidden(use_cuda)
 
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
@@ -68,13 +68,13 @@ def trainIters(encoder, decoder, pairs, char2i, n_iters, use_cuda, print_every=1
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-    training_pairs = [variablesFromPair(random.choice(pairs), char2i)
+    training_pairs = [variablesFromPair(random.choice(pairs), char2i, use_cuda)
                       for i in range(n_iters)]
     loss_function = nn.NLLLoss()
 
     for iter in range(1, n_iters + 1):
         training_pair = training_pairs[iter - 1]
-        
+
         input_variable = training_pair[0]
         target_variable = training_pair[1]
 
@@ -108,7 +108,7 @@ if __name__=='__main__':
     pickle.dump(char2i, char_output)
 
     use_cuda = args.gpu
-    
+
     if use_cuda:
         encoder1 = encoder1.cuda()
         attn_decoder1 = attn_decoder1.cuda()

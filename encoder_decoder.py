@@ -4,8 +4,6 @@ from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
 
-use_cuda = torch.cuda.is_available()
-
 
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size):
@@ -24,7 +22,7 @@ class EncoderRNN(nn.Module):
         output, hidden = self.gru(output, hidden)
         return output, hidden
 
-    def initHidden(self):
+    def initHidden(self, use_cuda):
         result = Variable(torch.zeros(1, 1, self.hidden_size))
         if use_cuda:
             return result.cuda()
@@ -67,7 +65,7 @@ class AttnDecoderRNN(nn.Module):
         output = F.log_softmax(self.out(output[0]))
         return output, hidden, attn_weights
 
-    def initHidden(self):
+    def initHidden(self, use_cuda):
         result = Variable(torch.zeros(1, 1, self.hidden_size))
         if use_cuda:
             return result.cuda()

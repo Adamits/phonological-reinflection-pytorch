@@ -4,16 +4,14 @@ import pickle
 from encoder_decoder import *
 from data_prep import *
 
-def predict(encoder, decoder, sentence, char2i, max_length=50):
+def predict(encoder, decoder, sentence, char2i, use_cuda, max_length=50):
     i2char = {i: w for w, i in char2i.items()}
-    input_variable = variableFromSentence(sentence, char2i)
+    input_variable = variableFromSentence(sentence, char2i, use_cuda)
     input_length = input_variable.size()[0]
-    encoder_hidden = encoder.initHidden()
+    encoder_hidden = encoder.initHidden(use_cuda)
 
     encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
     encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
-
-    EOS_count = 0
 
     for ei in range(input_length):
         encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
@@ -52,6 +50,7 @@ if __name__=='__main__':
                         help='The encoder that we are evaluating on')
     parser.add_argument('decoderModel', metavar='decoderModel',
                         help='The decoder that we are evaluating on')
+    parser.add_argument('--gpu',action='store_true',  help='tell the system to use a gpu if you have cuda set up')
 
     args = parser.parse_args()
     hidden_size = 500
@@ -62,6 +61,8 @@ if __name__=='__main__':
     encoder = torch.load(args.encoderModel)
     decoder = torch.load(args.decoderModel)
 
+    use_cuda = args.gpu
+
     if use_cuda:
         encoder = encoder.cuda()
         decoder = decoder.cuda()
@@ -69,7 +70,7 @@ if __name__=='__main__':
     acc = 0
     total = 0
     for isentence, osentence in test_data.pairs:
-        pred, attentions = predict(encoder, decoder, isentence, train_char2i)
+        pred, attentions = predict(encoder, decoder, isentence, train_char2i, use_cuda)
         print("===============")
         print("PREDICTION")
         print(pred)
