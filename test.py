@@ -66,6 +66,8 @@ if __name__=='__main__':
         encoder = encoder.cuda()
         decoder = decoder.cuda()
 
+    acc = 0
+    total = 0
     for isentence, osentence in test_data.pairs:
         pred, attentions = predict(encoder, decoder, isentence, train_char2i)
         print("===============")
@@ -73,3 +75,8 @@ if __name__=='__main__':
         print(pred)
         print("GOLD")
         print(osentence)
+        if pred == osentence:
+            acc  += 1
+        total += 1
+
+    print("ACCURACY: %2f" % acc / total)

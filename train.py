@@ -38,8 +38,6 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
 
     decoder_hidden = encoder_hidden
     # SKIP THE FIRST ONE IN THE TARGET AS IT IS EOS AND WE INITIALIZE WITH EOS
-    print("TARGET")
-    print(target_variable)
     for di in range(1, target_length-1):
         decoder_output, decoder_hidden, decoder_attention = decoder(
             decoder_input, decoder_hidden, encoder_outputs)
@@ -107,7 +105,7 @@ if __name__=='__main__':
     # Store the character dictionary for use in testing
     char_output = open('./models/%s-char2i.pkl' % args.lang, 'wb')
     pickle.dump(char2i, char_output)
-    
+
     if use_cuda:
         encoder1 = encoder1.cuda()
         attn_decoder1 = attn_decoder1.cuda()
