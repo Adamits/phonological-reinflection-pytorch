@@ -3,9 +3,9 @@ import codecs
 import torch
 from torch.autograd import Variable
 
-import epitran
-import panphon
-from util import lang2ISO
+#import epitran
+#import panphon
+#from util import lang2ISO
 
 # Remember to add this to char2i
 EOS="<EOS>"
@@ -54,7 +54,7 @@ class DataPrep:
 class DataPrepPhones(DataPrep):
     def __init__(self, fn, lang):
         super(DataPrepPhones, self).__init__()
-        self.epi = epitran.Epitran(lang2ISO(lang))
+        #self.epi = epitran.Epitran(lang2ISO(lang))
 
     def readData(self, fn):
         print("Reading lines...")
@@ -65,9 +65,9 @@ class DataPrepPhones(DataPrep):
 
         # Split every line into pairs
         # Form of [[e, a, c, h, " ", c, h, a, r, tag, tag, tag], w, o, r, d, " ", f, o, r, m]
-        pairs = [(list(lemma) + tags.split(";"), list(wf)) for lemma, wf, tags in lines]
-        lemmas = [get_phones(epi, lemma) for lemma, _, _ in data]
-        wfs = [get_phones(epi, wf) for _, wf, _ in data]
+        #pairs = [(list(lemma) + tags.split(";"), list(wf)) for lemma, wf, tags in lines]
+        #lemmas = [get_phones(epi, lemma) for lemma, _, _ in data]
+        #wfs = [get_phones(epi, wf) for _, wf, _ in data]
 
         return pairs
 
@@ -97,8 +97,7 @@ def indexesFromSentence(sentence, char2i):
 
 def variableFromSentence(sentence, char2i):
     indexes = indexesFromSentence(sentence, char2i)
-    indexes.insert(0, EOS_index)
-    indexes.append(EOS_index)
+    indexes = [EOS_index] + indexes + [EOS_index]
     result = Variable(torch.LongTensor(indexes).view(-1, 1))
     if use_cuda:
         return result.cuda()
