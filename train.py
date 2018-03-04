@@ -88,7 +88,7 @@ def trainIters(encoder, decoder, pairs, char2i, n_iters, use_cuda, print_every=1
         if iter % print_every == 0:
             print_loss_avg = print_loss_total / print_every
             print_loss_total = 0
-            print('%.4f' % print_loss_avg)
+            print('LOSS: %.4f' % print_loss_avg)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Train the encoder decoder with reinflection data')
