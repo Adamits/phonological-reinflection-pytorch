@@ -14,7 +14,7 @@ class EncoderRNN(nn.Module):
         # Set embedding matrix to find weights from input to hidden layer
         self.embedding = nn.Embedding(input_size, hidden_size)
         # 'gated recurrent unit' RNN layer
-        self.gru = nn.GRU(hidden_size, hidden_size)
+        self.gru = nn.GRU(hidden_size, hidden_size, bidirectional=True)
 
     def forward(self, input, hidden):
         embedded = self.embedding(input).view(1, 1, -1)
