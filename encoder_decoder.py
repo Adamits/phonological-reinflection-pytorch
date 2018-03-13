@@ -15,12 +15,14 @@ class EncoderRNN(nn.Module):
         self.embedding = nn.Embedding(input_size, hidden_size)
         # 'gated recurrent unit' RNN layer
         self.gru = nn.GRU(hidden_size, hidden_size)
+        print(self.gru)
 
-    def forward(self, input, hidden):
-        embedded = self.embedding(input).view(1, 1, -1)
-        output = embedded
-        output, hidden = self.gru(output, hidden)
-        return output, hidden
+    def forward(self, word_inputs, hidden):
+        # Note: we run this all at once (over the whole input sequence)
+        seq_len = len(word_inputs)
+        embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
+        outputs, hidden = self.gru(embedded, hidden)
+        return outputs, hidden
 
     def initHidden(self, use_cuda):
         result = Variable(torch.zeros(1, 1, self.hidden_size))
@@ -52,7 +54,6 @@ class AttnDecoderRNN(nn.Module):
         attn_weights = F.softmax(
             self.attn(torch.cat((embedded[0], hidden[0]), 1)))
 
-        # ERROR HERE, WE EXPECT ENCODER OUTPUTS TO HAVE 2 DIMS, BUT IT HAS 3 IN EVAL (although not in train)
         attn_applied = torch.bmm(attn_weights.unsqueeze(0),
                                  encoder_outputs.unsqueeze(0))
 
