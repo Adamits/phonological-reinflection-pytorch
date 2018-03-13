@@ -91,7 +91,10 @@ class DataPrepPhoneFeatures(DataPrep):
 
 
 def indexesFromSentence(sentence, char2i):
-    return [char2i[c] for c in sentence]
+    """
+    return the list of indices, skipping unknown chars
+    """
+    return [char2i[c] for c in sentence if c in char2i.keys()]
 
 def variableFromSentence(sentence, char2i, use_cuda):
     indexes = indexesFromSentence(sentence, char2i)

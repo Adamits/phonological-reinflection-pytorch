@@ -36,6 +36,9 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
     encoder_outputs, encoder_hidden = encoder(input_variable, encoder_hidden)
     encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
 
+    encoder_outputs, encoder_hidden = encoder(input_variable, encoder_hidden)
+    encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
+
     decoder_input = Variable(torch.LongTensor([[EOS_index]]))
     decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 

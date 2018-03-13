@@ -31,7 +31,6 @@ def predict(encoder, decoder, sentence, char2i, use_cuda, max_length=50):
             topv, topi = decoder_output.data.topk(1)
             ni = topi[0][0]
             if ni == EOS_index:
-                decoded_words.append(EOS)
                 break
             else:
                 decoded_words.append(i2char[ni])
@@ -80,4 +79,4 @@ if __name__=='__main__':
             acc  += 1
         total += 1
 
-    print("ACCURACY: %2f" % acc / total)
+    print("ACCURACY: %2f" % (acc / total) * 100)
