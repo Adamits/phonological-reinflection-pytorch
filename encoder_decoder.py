@@ -16,10 +16,12 @@ class EncoderRNN(nn.Module):
         # 'gated recurrent unit' RNN layer
         self.gru = nn.GRU(hidden_size, hidden_size, bidirectional=True)
 
-    def forward(self, input, hidden):
-        embedded = self.embedding(input).view(1, 1, -1)
-        output = embedded
-        output, hidden = self.gru(output, hidden)
+    def forward(self, input_var, hidden):
+        seq_len = len(input_var)
+        embedded = self.embedding(input_var).view(seq_len, 1, -1)
+        print(embedded)
+        print(hidden)
+        output, hidden = self.gru(embedded, hidden)
         return output, hidden
 
     def initHidden(self, use_cuda):
