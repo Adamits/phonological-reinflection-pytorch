@@ -15,10 +15,8 @@ class EncoderRNN(nn.Module):
         self.embedding = nn.Embedding(input_size, hidden_size)
         # 'gated recurrent unit' RNN layer
         self.gru = nn.GRU(hidden_size, hidden_size)
-        print(self.gru)
 
     def forward(self, word_inputs, hidden):
-        # Note: we run this all at once (over the whole input sequence)
         seq_len = len(word_inputs)
         embedded = self.embedding(word_inputs).view(seq_len, 1, -1)
         outputs, hidden = self.gru(embedded, hidden)
@@ -54,8 +52,10 @@ class AttnDecoderRNN(nn.Module):
         attn_weights = F.softmax(
             self.attn(torch.cat((embedded[0], hidden[0]), 1)))
 
+        print(attn_weights.unsqueeze(0))
+        print(encoder_outputs)
         attn_applied = torch.bmm(attn_weights.unsqueeze(0),
-                                 encoder_outputs.unsqueeze(0))
+                                 encoder_outputs)
 
         output = torch.cat((embedded[0], attn_applied[0]), 1)
         output = self.attn_combine(output).unsqueeze(0)
