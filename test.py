@@ -26,7 +26,8 @@ def predict(encoder, decoder, sentence, char2i, use_cuda, max_length=50):
         decoder_attentions = torch.zeros(max_length, max_length)
 
         for di in range(max_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input,
+                decoder_hidden, encoder_outputs, use_cuda)
             decoder_attentions[di] = decoder_attention.data
             topv, topi = decoder_output.data.topk(1)
             ni = topi[0][0]

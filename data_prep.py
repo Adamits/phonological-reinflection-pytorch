@@ -9,16 +9,18 @@ from torch.autograd import Variable
 
 # Remember to add this to char2i
 EOS="<EOS>"
-EOS_index=0
+EOS_index=1
+PADDING_SYMBOL="@"
+PADDING_index=0
 
 class DataPrep:
     def __init__(self, fn):
         self.fn = fn
-        self.char2i = {EOS: EOS_index}
+        self.char2i = {PADDING_SYMBOL: PADDING_index, EOS: EOS_index}
         self.pairs, self.input_vocab, self.output_vocab = self.prepareData(self.fn)
         # Assign indices for all chars (or tags) from both vocabs,
-        # starting at 1 to account for 0: EOS
-        self.char2i = {c: i+1 for i, c in enumerate(list(set(self.input_vocab + self.output_vocab)))}
+        # starting at 2 to account for EOS and PADDING
+        self.char2i.update({c: i+2 for i, c in enumerate(list(set(self.input_vocab + self.output_vocab)))})
 
     def readData(self, fn):
         print("Reading lines...")

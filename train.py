@@ -7,49 +7,111 @@ from data_prep import *
 
 EOS="<EOS>"
 EOS_index=0
+PADDING_SYMBOL = "@"
+PADDING_index=0
+
+class Batch():
+    def __init__(self, data):
+        self.symbol = PADDING_SYMBOL
+        self.size = (len(data))
+        self.input = [d[0] for d in data]
+        self.output = [d[1] for d in data]
+        self.input_lengths = [len(i) for i in self.input]
+        # Because it is sorted, first input in the batch should have max_length
+        self.max_length_in = self.input_lengths[0]
+        self.output_lengths = [len(o) for o in self.output]
+        # We do not expect the outputs to be sorted though... (but we can expect that they might
+        # have SOME similarity in length to input)
+        self.max_length_out = max(self.output_lengths)
+
+    def input_variable(self, char2i):
+        """
+        Turn the input into a tensor of batch_size x batch_length
+
+        Returns the input
+        """
+        tensor = torch.LongTensor(self.size, self.max_length_in)
+
+        for i, word in enumerate(self.input):
+            ids = [char2i[c] for c in word]
+            # Pad the difference with symbol
+            ids = ids + [char2i[self.symbol]] * (self.max_length_in - len(word))
+            tensor[i] = torch.LongTensor(ids)
+
+        self.input = Variable(tensor)
+        return self.input
+
+    def output_variable(self, char2i):
+        """
+        Turn the output into a tensor of batch_size x batch_length
+
+        Returns the output
+        """
+        tensor = torch.LongTensor(self.size, self.max_length_out)
+
+        for i, word in enumerate(self.output):
+            ids = [char2i[c] for c in word]
+            # Pad the difference with symbol
+            ids = ids + [char2i[self.symbol]] * (self.max_length_out - len(word))
+            tensor[i] = torch.LongTensor(ids)
+
+        self.output = Variable(tensor)
+        return self.output
 
 
-def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda,  max_length=50):
+def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda):
     """
     Compute the loss and make the parameter updates for a single sequence,
     where loss is the average of losses for each in the sequence
     """
-    encoder_hidden = encoder.initHidden(use_cuda)
+    encoder_hidden = encoder.initHidden(batch.size, use_cuda)
 
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
 
-    input_length = input_variable.size()[0]
-    target_length = target_variable.size()[0]
-
-    #encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
-    #encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
-
     loss = 0
 
-    """
-    for ei in range(input_length):
-        encoder_output, encoder_hidden = encoder(input_variable[ei], encoder_hidden)
-        encoder_outputs[ei] = encoder_output[0][0]
-    """
-
-    encoder_outputs, encoder_hidden = encoder(input_variable, encoder_hidden)
+    encoder_outputs, encoder_hidden = encoder(batch.input.t(), encoder_hidden, batch.input_lengths)
     encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
 
-    encoder_outputs, encoder_hidden = encoder(input_variable, encoder_hidden)
-    encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
+    decoder_input = Variable(torch.LongTensor([EOS_index] * batch.size))
 
-    decoder_input = Variable(torch.LongTensor([[EOS_index]]))
-    decoder_input = decoder_input.cuda() if use_cuda else decoder_input
-
+    # Use last (forward) hidden state from encoder
     decoder_hidden = encoder_hidden
     #print(encoder_outputs)
     #print("INPUT SEQUENCE")
     #print(input_variable)
+
+    all_decoder_outputs = Variable(torch.zeros(batch.max_length_out, batch.size, decoder.output_size))
+
+    # Move new Variables to CUDA
+    if use_cuda:
+        decoder_input = decoder_input.cuda()
+        all_decoder_outputs = all_decoder_outputs.cuda()
+
+    # Run through decoder one time step at a time
+    for t in range(batch.max_length_out):
+        decoder_output, decoder_hidden, decoder_attn = decoder(
+            decoder_input, decoder_hidden, encoder_outputs, use_cuda
+        )
+
+        all_decoder_outputs[t] = decoder_output
+        # Next input. Transpose to select along the column,
+        # one from each batch at index t.
+        decoder_input = batch.output.t()[t]
+
+    loss = loss_function(
+        # batch x seq
+        all_decoder_outputs.transpose(0, 1).contiguous(),
+        # batch x seq
+        batch.output.transpose(0, 1).contiguous()
+    )
+
+    """
     # SKIP THE FIRST ONE IN THE TARGET AS IT IS EOS AND WE INITIALIZE WITH EOS
     for di in range(1, target_length):
         decoder_output, decoder_hidden, decoder_attention = decoder(
-            decoder_input, decoder_hidden, encoder_outputs)
+            decoder_input, decoder_hidden, encoder_outputs, use_cuda)
 
         topv, topi = decoder_output.data.topk(1)
         ni = topi[0][0]
@@ -63,11 +125,12 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
         print(target_variable[di].data[0])
         print("=========================")
 
+        # Unsqueeze to give the target variable a 'batch' dimension of 1
         loss += loss_function(decoder_output, target_variable[di])
         if ni == EOS_index:
             #print("BREAKING!!! %i" % ni)
             break
-
+    """
     loss.backward()
 
     encoder_optimizer.step()
@@ -75,29 +138,35 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
 
     return loss.data[0] / target_length
 
-def trainIters(encoder, decoder, pairs, char2i, n_iters, use_cuda, print_every=100, learning_rate=0.01, max_length=50):
-    print_loss_total = 0  # Reset every print_every
-
+def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=0.01, batch_size=5):
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-    training_pairs = [variablesFromPair(random.choice(pairs), char2i, use_cuda)
-                      for i in range(n_iters)]
     loss_function = nn.NLLLoss()
 
-    for iter in range(1, n_iters + 1):
-        training_pair = training_pairs[iter - 1]
+    sorted_pairs = pairs.copy()
+    # Sort the data by the length of the document, so that batches are of similar length
+    sorted_pairs.sort(key=lambda x: len(x[0]), reverse=True)
 
-        input_variable = training_pair[0]
-        target_variable = training_pair[1]
+    # Split sorted_data into n batches each of size batch_length
+    batches = [sorted_pairs[i:i+batch_size] for i in range(0, len(sorted_pairs), batch_size)]
+    # Loop over indices so we can modify batches in place
+    for i in range(len(batches)):
+        batches[i] = Batch(batches[i])
+        batches[i].input_variable(char2i)
+        batches[i].input_variable = batches[i].input_variable.cuda() if use_cuda else batches[i].input_variable
+        batches[i].output_variable(char2i)
+        batches[i].output_variable = batches[i].output_variable.cuda() if use_cuda else batches[i].output_variable
 
-        loss = train(input_variable, target_variable, encoder,
-                     decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda, max_length)
-        print_loss_total += loss
+    for epoch in range(1, epochs + 1):
+        print("EPOCH %i" % epoch)
+        random.shuffle(batches)
+        losses = []
 
-        if iter % print_every == 0:
-            print_loss_avg = print_loss_total / print_every
-            print_loss_total = 0
-            print('LOSS: %.4f' % print_loss_avg)
+        for batch in batches:
+            loss = train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda)
+            losses.append(loss.data[0])
+
+        print("LOSS: %.4f" % (sum(losses) / len(losses)))
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Train the encoder decoder with reinflection data')
@@ -112,7 +181,7 @@ if __name__=='__main__':
     data = DataPrep(args.filename)
     input_size = len(data.char2i.keys())
     encoder1 = EncoderRNN(input_size+1, hidden_size)
-    attn_decoder1 = AttnDecoderRNN(hidden_size, input_size+1, dropout_p=0.4)
+    attn_decoder1 = AttnDecoderRNN(hidden_size, input_size+1, dropout_p=0.3)
 
     char2i = data.char2i
     # Store the character dictionary for use in testing
@@ -125,7 +194,7 @@ if __name__=='__main__':
         encoder1 = encoder1.cuda()
         attn_decoder1 = attn_decoder1.cuda()
 
-    trainIters(encoder1, attn_decoder1, data.pairs, char2i, 75000, use_cuda,  print_every=100)
+    trainIters(encoder1, attn_decoder1, data.pairs, char2i, 50, use_cuda, batch_size=10)
 
     torch.save(encoder1, "./models/%s-encoder" % args.lang)
     torch.save(attn_decoder1, "./models/%s-decoder" % args.lang)
