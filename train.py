@@ -167,7 +167,7 @@ if __name__=='__main__':
         encoder1 = encoder1.cuda()
         attn_decoder1 = attn_decoder1.cuda()
 
-    trainIters(encoder1, attn_decoder1, data.pairs, char2i, 50, use_cuda, batch_size=10)
+    trainIters(encoder1, attn_decoder1, data.pairs, char2i, 50, use_cuda, batch_size=200)
 
     torch.save(encoder1, "./models/%s-encoder" % args.lang)
     torch.save(attn_decoder1, "./models/%s-decoder" % args.lang)
