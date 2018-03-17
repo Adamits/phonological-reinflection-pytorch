@@ -25,7 +25,7 @@ class Batch():
         # have SOME similarity in length to input)
         self.max_length_out = max(self.output_lengths)
 
-    def input_variable(self, char2i):
+    def input_variable(self, char2i, use_cuda):
         """
         Turn the input into a tensor of batch_size x batch_length
 
@@ -39,10 +39,10 @@ class Batch():
             ids = ids + [char2i[self.symbol]] * (self.max_length_in - len(word))
             tensor[i] = torch.LongTensor(ids)
 
-        self.input = Variable(tensor)
+        self.input = Variable(tensor).cuda() if use_cuda else Variable(tensor)
         return self.input
 
-    def output_variable(self, char2i):
+    def output_variable(self, char2i, use_cuda):
         """
         Turn the output into a tensor of batch_size x batch_length
 
@@ -56,7 +56,7 @@ class Batch():
             ids = ids + [char2i[self.symbol]] * (self.max_length_out - len(word))
             tensor[i] = torch.LongTensor(ids)
 
-        self.output = Variable(tensor)
+        self.output = Variable(tensor).cuda() if use_cuda else Variable(tensor)
         return self.output
 
 
@@ -79,9 +79,6 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
 
     # Use last (forward) hidden state from encoder
     decoder_hidden = encoder_hidden
-    #print(encoder_outputs)
-    #print("INPUT SEQUENCE")
-    #print(input_variable)
 
     all_decoder_outputs = Variable(torch.zeros(batch.max_length_out, batch.size, decoder.output_size))
 
@@ -100,7 +97,7 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
         # Next input. Transpose to select along the column,
         # one from each batch at index t.
         decoder_input = batch.output.t()[t]
-
+        decoder_input = decoder_input.cuda() if use_cuda else decoder_input
     loss = masked_cross_entropy(
         # batch x seq
         all_decoder_outputs.transpose(0, 1).contiguous(),
@@ -130,10 +127,8 @@ def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=
     # Loop over indices so we can modify batches in place
     for i in range(len(batches)):
         batches[i] = Batch(batches[i])
-        batches[i].input_variable(char2i)
-        batches[i].input_variable = batches[i].input_variable.cuda() if use_cuda else batches[i].input_variable
-        batches[i].output_variable(char2i)
-        batches[i].output_variable = batches[i].output_variable.cuda() if use_cuda else batches[i].output_variable
+        batches[i].input_variable(char2i, use_cuda)
+        batches[i].output_variable(char2i, use_cuda)
 
     for epoch in range(1, epochs + 1):
         print("EPOCH %i" % epoch)
@@ -142,7 +137,6 @@ def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=
 
         for batch in batches:
             loss = train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda)
-            print(loss)
             losses.append(loss)
 
         print("LOSS: %.4f" % (sum(losses) / len(losses)))

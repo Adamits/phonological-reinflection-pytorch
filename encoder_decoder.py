@@ -90,8 +90,9 @@ class AttnDecoderRNN(nn.Module):
             # Run the attn MLP over the concat of a hidden state and
             # encoder_output, along axis 1
             energy = self.attn(torch.cat((h, encoder_output), 1))
-            # Dot product with parameter vector
-            energy = self.flatten.dot(energy)
+            # Dot product with parameter vector. Look at last dimension
+            # Possible issue in pytroch version on Mans server?
+            energy = self.flatten.view(-1).dot(energy.view(-1))
             return energy
 
         # Calculate energies for each encoder output by applying linear attn layer
