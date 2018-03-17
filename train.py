@@ -137,6 +137,7 @@ def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=
 
         for batch in batches:
             loss = train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda)
+            print("Batch loss: %.4f" % loss)
             losses.append(loss)
 
         print("LOSS: %.4f" % (sum(losses) / len(losses)))
