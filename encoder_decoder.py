@@ -51,12 +51,12 @@ class AttnDecoderRNN(nn.Module):
     def forward(self, input, hidden, encoder_outputs, use_cuda):
         max_len = encoder_outputs.size(0)
         batch_size = encoder_outputs.size(1)
-        print(input.size())
-        print(encoder_outputs.size())
+        #print(input.size())
+        #print(encoder_outputs.size())
         # Get the embedding of the current input word (last output word)
         embedded = self.embedding(input)
         embedded = self.dropout(embedded)
-        print(embedded.size())
+        #print(embedded.size())
         embedded = embedded.view(1, batch_size, self.hidden_size)
 
         # Normalize to get the actual weights,

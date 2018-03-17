@@ -1,6 +1,7 @@
 import random
 import argparse
 import pickle
+from masked_cross_entropy import masked_cross_entropy
 
 from encoder_decoder import *
 from data_prep import *
@@ -100,48 +101,25 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
         # one from each batch at index t.
         decoder_input = batch.output.t()[t]
 
-    loss = loss_function(
+    loss = masked_cross_entropy(
         # batch x seq
         all_decoder_outputs.transpose(0, 1).contiguous(),
         # batch x seq
-        batch.output.transpose(0, 1).contiguous()
+        batch.output,
+        batch.output_lengths,
+        use_cuda
     )
 
-    """
-    # SKIP THE FIRST ONE IN THE TARGET AS IT IS EOS AND WE INITIALIZE WITH EOS
-    for di in range(1, target_length):
-        decoder_output, decoder_hidden, decoder_attention = decoder(
-            decoder_input, decoder_hidden, encoder_outputs, use_cuda)
-
-        topv, topi = decoder_output.data.topk(1)
-        ni = topi[0][0]
-
-        decoder_input = Variable(torch.LongTensor([[ni]]))
-        decoder_input = decoder_input.cuda() if use_cuda else decoder_input
-
-        print("PRED")
-        print(ni)
-        print("GOLD")
-        print(target_variable[di].data[0])
-        print("=========================")
-
-        # Unsqueeze to give the target variable a 'batch' dimension of 1
-        loss += loss_function(decoder_output, target_variable[di])
-        if ni == EOS_index:
-            #print("BREAKING!!! %i" % ni)
-            break
-    """
     loss.backward()
-
     encoder_optimizer.step()
     decoder_optimizer.step()
 
-    return loss.data[0] / target_length
+    return loss.data[0]
 
 def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=0.01, batch_size=5):
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-    loss_function = nn.NLLLoss()
+    loss_function = nn.NLLLoss(ignore_index=PADDING_index)
 
     sorted_pairs = pairs.copy()
     # Sort the data by the length of the document, so that batches are of similar length
@@ -164,7 +142,8 @@ def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=
 
         for batch in batches:
             loss = train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda)
-            losses.append(loss.data[0])
+            print(loss)
+            losses.append(loss)
 
         print("LOSS: %.4f" % (sum(losses) / len(losses)))
 
