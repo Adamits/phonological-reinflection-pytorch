@@ -14,16 +14,15 @@ class EncoderRNN(nn.Module):
         # Set embedding matrix to find weights from input to hidden layer
         self.embedding = nn.Embedding(input_size, hidden_size)
         # 'gated recurrent unit' RNN layer
-        self.gru = nn.GRU(hidden_size, hidden_size)
+        self.gru = nn.GRU(hidden_size, hidden_size, bidirectional=True)
 
     def forward(self, input_batch, input_lengths, hidden=None):
         embedded = self.embedding(input_batch)
         packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
         outputs, hidden = self.gru(packed, hidden)
-        print(outputs)
         outputs, output_length = torch.nn.utils.rnn.pad_packed_sequence(outputs)
         # Sum bidirectional outputs
-        # outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:]
+        outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:]
 
         return outputs, hidden
 
@@ -61,7 +60,12 @@ class AttnDecoderRNN(nn.Module):
 
         # Normalize to get the actual weights,
         # Resize softmax to 1 x 1 x seq_len
-        attn_weights = F.softmax(self._attend(encoder_outputs, hidden, batch_size, max_len, use_cuda), dim=1).unsqueeze(1)
+        # Create variable to store attention energies for the batch
+        attn_energies = Variable(torch.zeros(batch_size, max_len))
+        if use_cuda: attn_energies = attn_energies.cuda()
+        attn_energies = self._attend(encoder_outputs, hidden, batch_size, max_len, attn_energies)
+        
+        attn_weights = F.softmax(attn_energies, dim=1).unsqueeze(1)
 
         # 'Apply' attention by taking weights * encoder outputs
         context = torch.bmm(attn_weights,
@@ -80,18 +84,15 @@ class AttnDecoderRNN(nn.Module):
         output = F.log_softmax(self.out(torch.cat((output, context), 1)), dim=1)
         return output, hidden, attn_weights
 
-    def _attend(self, encoder_outputs, hidden, batch_size, max_len, use_cuda):
-        # Create variable to store attention energies for the batch
-        attn_energies = Variable(torch.zeros(batch_size, max_len))
-        if use_cuda: attn_energies = attn_energies.cuda()
-
+    def _attend(self, encoder_outputs, hidden, batch_size, max_len, attn_energies):
         def _score(h, encoder_output):
             # Run the attn MLP over the concat of a hidden state and
             # encoder_output, along axis 1
             energy = self.attn(torch.cat((h, encoder_output), 1))
             # Dot product with parameter vector. Look at last dimension
             # Possible issue in pytroch version on Mans server?
-            energy = self.flatten.view(-1).dot(energy.view(-1))
+            # energy = self.flatten.view(-1).dot(energy.view(-1))
+            energy = h.view(-1).dot(energy.view(-1))
             return energy
 
         # Calculate energies for each encoder output by applying linear attn layer
