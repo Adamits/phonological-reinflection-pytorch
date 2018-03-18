@@ -88,6 +88,7 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
         all_decoder_outputs = all_decoder_outputs.cuda()
 
     print("Decoding...")
+    """
     if teacher_forcing:
             # Run through decoder one time step at a time
             for t in range(batch.max_length_out):
@@ -182,7 +183,7 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
         print("Updating parameters...")
         encoder_optimizer.step()
         decoder_optimizer.step()
-    """
+    
     #print(prof)
     return loss.data[0]
 
