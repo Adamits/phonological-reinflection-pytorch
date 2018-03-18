@@ -55,21 +55,25 @@ class AttnDecoderRNN(nn.Module):
         # Get the embedding of the current input word (last output word)
         embedded = self.embedding(input)
         embedded = self.dropout(embedded)
-        #print(embedded.size())
         embedded = embedded.view(1, batch_size, self.hidden_size)
 
-        # Normalize to get the actual weights,
-        # Resize softmax to 1 x 1 x seq_len
         # Create variable to store attention energies for the batch
         attn_energies = Variable(torch.zeros(batch_size, max_len))
         if use_cuda: attn_energies = attn_energies.cuda()
+        # Attend over the encoder outputs and last hidden state
         attn_energies = self._attend(encoder_outputs, hidden, batch_size, max_len, attn_energies)
-        
+
+        # Normalize to get the actual weights,
+        # Resize softmax to 1 x 1 x seq_len
         attn_weights = F.softmax(attn_energies, dim=1).unsqueeze(1)
 
-        # 'Apply' attention by taking weights * encoder outputs
-        context = torch.bmm(attn_weights,
-                                 encoder_outputs.transpose(0, 1))
+        with torch.autograd.profiler.profile() as prof:
+            # 'Apply' attention by taking weights * encoder outputs
+            context = torch.bmm(attn_weights,
+                encoder_outputs.transpose(0, 1))
+
+        print(prof)
+
         context = context.transpose(0, 1)
         output = torch.cat((embedded, context), 2)
 
@@ -78,9 +82,10 @@ class AttnDecoderRNN(nn.Module):
         output = output.squeeze(0)
         context = context.squeeze(0)
 
-        # Decoder softmax over the concatenation of the decoder RNN output
+        # Decoder softmax over the result of running
+        # the concatenation of the decoder RNN output
         # and the attn_wights applied to encoder outputs
-        #output = F.log_softmax(self.out(output))
+        # Throught the output MLP
         output = F.log_softmax(self.out(torch.cat((output, context), 1)), dim=1)
         return output, hidden, attn_weights
 
@@ -89,9 +94,7 @@ class AttnDecoderRNN(nn.Module):
             # Run the attn MLP over the concat of a hidden state and
             # encoder_output, along axis 1
             energy = self.attn(torch.cat((h, encoder_output), 1))
-            # Dot product with parameter vector. Look at last dimension
-            # Possible issue in pytroch version on Mans server?
-            # energy = self.flatten.view(-1).dot(energy.view(-1))
+            # Simple dot product of hidden and energy
             energy = h.view(-1).dot(energy.view(-1))
             return energy
 

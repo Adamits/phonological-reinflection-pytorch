@@ -72,28 +72,24 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
 
     loss = 0
 
+    print("Encoding...")
     encoder_outputs, encoder_hidden = encoder(batch.input.t(), batch.input_lengths)
     encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
 
     decoder_input = Variable(torch.LongTensor([EOS_index] * batch.size))
+    decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 
     # Use last (forward) hidden state from encoder
     decoder_hidden = encoder_hidden[:-1, :, :]
 
     all_decoder_outputs = Variable(torch.zeros(batch.max_length_out, batch.size, decoder.output_size))
-
-    # Move new Variables to CUDA
-    if use_cuda:
-        decoder_input = decoder_input.cuda()
-        all_decoder_outputs = all_decoder_outputs.cuda()
+    all_decoder_outputs = all_decoder_outputs.cuda() if use_cuda else all_decoder_outputs
 
     print("Decoding...")
 
     if teacher_forcing:
             # Run through decoder one time step at a time
             for t in range(batch.max_length_out):
-#                with torch.autograd.profiler.profile():
-#                    with torch.autograd.profiler.emit_nvtx() as prof:
                 decoder_output, decoder_hidden, decoder_attn = decoder(
                     decoder_input, decoder_hidden, encoder_outputs, use_cuda
                 )
@@ -138,55 +134,7 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
     print("Updating parameters...")
     encoder_optimizer.step()
     decoder_optimizer.step()
-    """
-    with torch.autograd.profiler.profile() as prof:
-        if teacher_forcing:
-            # Run through decoder one time step at a time
-            for t in range(batch.max_length_out):
-                decoder_output, decoder_hidden, decoder_attn = decoder(
-                    decoder_input, decoder_hidden, encoder_outputs, use_cuda
-                )
 
-                all_decoder_outputs[t] = decoder_output
-                # Next input. Transpose to select along the column,
-                # one from each batch at index t.
-                decoder_input = batch.output.t()[t]
-
-        else:
-            for t in range(batch.max_length_out):
-                decoder_output, decoder_hidden, decoder_attn = decoder(
-                    decoder_input, decoder_hidden, encoder_outputs, use_cuda
-                )
-
-                topv, topi = decoder_output.data.topk(1)
-                ni = topi[0][0]
-                decoder_input = Variable(torch.LongTensor([[ni]]))
-                decoder_input = decoder_input.cuda() if use_cuda else decoder_input
-
-                if ni == EOS_token:
-                    # Still add the EOS index, and then just pad the rest of the vector before breaking
-                    all_decoder_outputs[t] = decoder_output
-                    all_decoder_outputs = torch.cat(all_decoder_outputs, torch.LongTensor(batch.size, batch.max_length_out-t))
-                    break
-
-                all_decoder_outputs[t] = decoder_output
-  
-        print("Computing loss...")
-        loss = masked_cross_entropy(
-            # batch x seq x classes
-            all_decoder_outputs.transpose(0, 1).contiguous(),
-            # batch x seq
-            batch.output,
-            batch.output_lengths,
-            use_cuda
-        )
-
-        print("Backpropogating loss...")
-        loss.backward()
-        print("Updating parameters...")
-        encoder_optimizer.step()
-        decoder_optimizer.step()
-    """
     # print(prof)
     return loss.data[0]
 
