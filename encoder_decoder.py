@@ -51,8 +51,7 @@ class AttnDecoderRNN(nn.Module):
     def forward(self, input, hidden, encoder_outputs, use_cuda):
         max_len = encoder_outputs.size(0)
         batch_size = encoder_outputs.size(1)
-        #print(input.size())
-        #print(encoder_outputs.size())
+
         # Get the embedding of the current input word (last output word)
         embedded = self.embedding(input)
         embedded = self.dropout(embedded)
@@ -67,7 +66,6 @@ class AttnDecoderRNN(nn.Module):
         context = torch.bmm(attn_weights,
                                  encoder_outputs.transpose(0, 1))
         context = context.transpose(0, 1)
-        #context = context.transpose(0, 1)
         output = torch.cat((embedded, context), 2)
 
         output, hidden = self.gru(output, hidden)
@@ -101,6 +99,7 @@ class AttnDecoderRNN(nn.Module):
             for i in range(max_len):
                 # Need to unsqueeze each output to have rank 3 tensor,
                 # and apply concat along axis 1.
+                # DO WE NEED SOME MASKING MECHANISM SO THAT PADDING DOES NOT GET AN ENERGY?
                 attn_energies[b, i] = _score(hidden[:, b], encoder_outputs[i, b].unsqueeze(0))
 
         return attn_energies
