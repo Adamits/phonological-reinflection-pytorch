@@ -100,34 +100,34 @@ OA    """
                 # one from each batch at index t.
                 decoder_input = batch.output.t()[t]
 
-        else:
-            for t in range(batch.max_length_out):
-                decoder_output, decoder_hidden, decoder_attn = decoder(
-                    decoder_input, decoder_hidden, encoder_outputs, use_cuda
-                )
+    else:
+        for t in range(batch.max_length_out):
+            decoder_output, decoder_hidden, decoder_attn = decoder(
+                decoder_input, decoder_hidden, encoder_outputs, use_cuda
+            )
 
-                topv, topi = decoder_output.data.topk(1)
-                ni = topi[0][0]
-                decoder_input = Variable(torch.LongTensor([[ni]]))
-                decoder_input = decoder_input.cuda() if use_cuda else decoder_input
+            topv, topi = decoder_output.data.topk(1)
+            ni = topi[0][0]
+            decoder_input = Variable(torch.LongTensor([[ni]]))
+            decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 
-                if ni == EOS_token:
-                    # Still add the EOS index, and then just pad the rest of the vector before breaking
-                    all_decoder_outputs[t] = decoder_output
-                    all_decoder_outputs = torch.cat(all_decoder_outputs, torch.LongTensor(batch.size, batch.max_length_out-t))
-                    break
-
+            if ni == EOS_token:
+                # Still add the EOS index, and then just pad the rest of the vector before breaking
                 all_decoder_outputs[t] = decoder_output
+                all_decoder_outputs = torch.cat(all_decoder_outputs, torch.LongTensor(batch.size, batch.max_length_out-t))
+                break
 
-        print("Computing loss...")
-        loss = masked_cross_entropy(
-            # batch x seq x classes
-            all_decoder_outputs.transpose(0, 1).contiguous(),
-            # batch x seq
-            batch.output,
-            batch.output_lengths,
-            use_cuda
-        )
+            all_decoder_outputs[t] = decoder_output
+
+    print("Computing loss...")
+    loss = masked_cross_entropy(
+        # batch x seq x classes
+        all_decoder_outputs.transpose(0, 1).contiguous(),
+        # batch x seq
+        batch.output,
+        batch.output_lengths,
+        use_cuda
+    )
 
         print("Backpropogating loss...")
         loss.backward()
