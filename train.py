@@ -117,8 +117,8 @@ OA    """
                     all_decoder_outputs[t] = decoder_output
                     all_decoder_outputs = torch.cat(all_decoder_outputs, torch.LongTensor(batch.size, batch.max_length_out-t))
                     break
-                            
-                all_decoder_outputs[t] = decoder_output            
+
+                all_decoder_outputs[t] = decoder_output
 
         print("Computing loss...")
         loss = masked_cross_entropy(
@@ -136,7 +136,7 @@ OA    """
         encoder_optimizer.step()
         decoder_optimizer.step()
 
-        print(prof)
+    print(prof)
     return loss.data[0]
 
 def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=0.01, batch_size=5, teacher_forcing=True):
@@ -165,7 +165,7 @@ def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=
 
         for i, batch in enumerate(batches):
             print("computing batch %i" % i)
-            
+
             loss = train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda, teacher_forcing)
             print("Batch loss: %.4f" % loss)
             losses.append(loss)
