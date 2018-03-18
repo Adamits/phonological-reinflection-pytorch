@@ -129,11 +129,11 @@ OA    """
         use_cuda
     )
 
-        print("Backpropogating loss...")
-        loss.backward()
-        print("Updating parameters...")
-        encoder_optimizer.step()
-        decoder_optimizer.step()
+    print("Backpropogating loss...")
+    loss.backward()
+    print("Updating parameters...")
+    encoder_optimizer.step()
+    decoder_optimizer.step()
     """
     with torch.autograd.profiler.profile() as prof:
         if teacher_forcing:
