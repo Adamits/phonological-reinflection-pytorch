@@ -86,12 +86,9 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
     all_decoder_outputs = all_decoder_outputs.cuda() if use_cuda else all_decoder_outputs
 
     print("Decoding...")
-    print(batch.output_lengths)
-    print(batch.max_length_out)
     if teacher_forcing:
             # Run through decoder one time step at a time
             for t in range(batch.max_length_out):
-                print("character %i" % t)
                 decoder_output, decoder_hidden, decoder_attn = decoder(
                     decoder_input, decoder_hidden, encoder_outputs, use_cuda
                 )
@@ -137,7 +134,6 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
     encoder_optimizer.step()
     decoder_optimizer.step()
 
-    # print(prof)
     return loss.data[0]
 
 def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=0.01, batch_size=5, teacher_forcing=True):
