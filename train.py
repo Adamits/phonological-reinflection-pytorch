@@ -100,9 +100,11 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
         for t in range(batch.max_length_out):
             decoder_output, decoder_hidden, decoder_attn = decoder(
                 decoder_input, decoder_hidden, encoder_outputs, use_cuda
-            )
+        )
 
             topv, topi = decoder_output.data.topk(1)
+            print(decoder_output)
+            print(topi)
             decoder_input = topi
 
             if ni == EOS:
