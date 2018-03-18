@@ -64,7 +64,7 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
     """
     Compute the loss and make the parameter updates for a single sequence,
     where loss is the average of losses for each in the sequence
-OA    """
+    """
     encoder_hidden = encoder.initHidden(batch.size, use_cuda)
 
     encoder_optimizer.zero_grad()
@@ -88,6 +88,7 @@ OA    """
         all_decoder_outputs = all_decoder_outputs.cuda()
 
     print("Decoding...")
+    """
     if teacher_forcing:
             # Run through decoder one time step at a time
             for t in range(batch.max_length_out):
@@ -182,7 +183,7 @@ OA    """
         print("Updating parameters...")
         encoder_optimizer.step()
         decoder_optimizer.step()
-    """
+    
     #print(prof)
     return loss.data[0]
 

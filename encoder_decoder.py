@@ -61,7 +61,7 @@ class AttnDecoderRNN(nn.Module):
 
         # Normalize to get the actual weights,
         # Resize softmax to 1 x 1 x seq_len
-        attn_weights = F.softmax(self._attend(encoder_outputs, hidden, batch_size, max_len, use_cuda)).unsqueeze(1)
+        attn_weights = F.softmax(self._attend(encoder_outputs, hidden, batch_size, max_len, use_cuda), dim=1).unsqueeze(1)
 
         # 'Apply' attention by taking weights * encoder outputs
         context = torch.bmm(attn_weights,
@@ -77,7 +77,7 @@ class AttnDecoderRNN(nn.Module):
         # Decoder softmax over the concatenation of the decoder RNN output
         # and the attn_wights applied to encoder outputs
         #output = F.log_softmax(self.out(output))
-        output = F.log_softmax(self.out(torch.cat((output, context), 1)))
+        output = F.log_softmax(self.out(torch.cat((output, context), 1)), dim=1)
         return output, hidden, attn_weights
 
     def _attend(self, encoder_outputs, hidden, batch_size, max_len, use_cuda):
