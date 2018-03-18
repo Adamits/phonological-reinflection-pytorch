@@ -72,7 +72,7 @@ OA    """
 
     loss = 0
 
-    encoder_outputs, encoder_hidden = encoder(batch.input.t(), encoder_hidden, batch.input_lengths)
+    encoder_outputs, encoder_hidden = encoder(batch.input.t(), batch.input_lengths)
     encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
 
     decoder_input = Variable(torch.LongTensor([EOS_index] * batch.size))
