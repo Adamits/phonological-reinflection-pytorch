@@ -64,7 +64,7 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
     """
     Compute the loss and make the parameter updates for a single sequence,
     where loss is the average of losses for each in the sequence
-OA    """
+    """
     encoder_hidden = encoder.initHidden(batch.size, use_cuda)
 
     encoder_optimizer.zero_grad()

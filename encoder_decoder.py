@@ -23,7 +23,7 @@ class EncoderRNN(nn.Module):
         print(outputs)
         outputs, output_length = torch.nn.utils.rnn.pad_packed_sequence(outputs)
         # Sum bidirectional outputs
-        # outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:]
+        outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:]
 
         return outputs, hidden
 
