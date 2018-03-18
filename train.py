@@ -23,7 +23,6 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
 
     loss = 0
 
-    print("Encoding...")
     encoder_outputs, encoder_hidden = encoder(batch.input.t(), batch.input_lengths)
     encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
 
@@ -36,7 +35,6 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
     all_decoder_outputs = Variable(torch.zeros(batch.max_length_out, batch.size, decoder.output_size))
     all_decoder_outputs = all_decoder_outputs.cuda() if use_cuda else all_decoder_outputs
 
-    print("Decoding...")
     if teacher_forcing:
             # Run through decoder one time step at a time
             for t in range(batch.max_length_out):
@@ -56,11 +54,9 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
             )
 
             topv, topi = decoder_output.data.topk(1)
-            ni = topi[0][0]
-            decoder_input = Variable(torch.LongTensor([[ni]]))
-            decoder_input = decoder_input.cuda() if use_cuda else decoder_input
+            decoder_input = topi
 
-            if ni == EOS_token:
+            if ni == EOS:
                 # Still add the EOS index, and then just pad the rest of the vector before breaking
                 all_decoder_outputs[t] = decoder_output
                 all_decoder_outputs = torch.cat(all_decoder_outputs, torch.LongTensor(batch.size, batch.max_length_out-t))
@@ -68,7 +64,6 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
 
             all_decoder_outputs[t] = decoder_output
 
-    print("Computing loss...")
     loss = masked_cross_entropy(
         # batch x seq x classes
         all_decoder_outputs.transpose(0, 1).contiguous(),
@@ -78,16 +73,14 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
         use_cuda
     )
 
-    print("Backpropogating loss...")
     loss.backward()
 
-    print("Updating parameters...")
     encoder_optimizer.step()
     decoder_optimizer.step()
 
     return loss.data[0]
 
-def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=0.01, batch_size=5, teacher_forcing=True):
+def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=0.01, batch_size=5, teacher_forcing=False):
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
     loss_function = nn.NLLLoss(ignore_index=PADDING_index)
@@ -111,11 +104,9 @@ def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=
         random.shuffle(batches)
         losses = []
 
-        for i, batch in enumerate(batches):
-            print("computing batch %i" % i)
-
+        for batch in batches:
             loss = train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda, teacher_forcing)
-            print("Batch loss: %.4f" % loss)
+            
             losses.append(loss)
 
         print("LOSS: %.4f" % (sum(losses) / len(losses)))
@@ -126,10 +117,12 @@ if __name__=='__main__':
                         help='the filename of the file to train on')
     parser.add_argument('lang', metavar='lang',
                         help='The language that we are training on')
+    parser.add_argument('lr', metavar='learning_rate', help='learning rate for the optimizers')
     parser.add_argument('--gpu',action='store_true',  help='tell the system to use a gpu if you have cuda set up')
 
     args = parser.parse_args()
-    hidden_size = 500
+    hidden_size = 300
+    lr = float(args.lr)
     data = DataPrep(args.filename)
     input_size = len(data.char2i.keys())
     encoder1 = EncoderRNN(input_size+1, hidden_size)
@@ -148,7 +141,7 @@ if __name__=='__main__':
         encoder1 = encoder1.cuda()
         attn_decoder1 = attn_decoder1.cuda()
 
-    trainIters(encoder1, attn_decoder1, data.pairs, char2i, 50, use_cuda, batch_size=400)
+    trainIters(encoder1, attn_decoder1, data.pairs, char2i, 50, use_cuda, learning_rate=lr, batch_size=400)
 
     torch.save(encoder1, "./models/%s-encoder" % args.lang)
     torch.save(attn_decoder1, "./models/%s-decoder" % args.lang)
