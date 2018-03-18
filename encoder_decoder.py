@@ -16,13 +16,14 @@ class EncoderRNN(nn.Module):
         # 'gated recurrent unit' RNN layer
         self.gru = nn.GRU(hidden_size, hidden_size)
 
-    def forward(self, input_batch, hidden, input_lengths):
+    def forward(self, input_batch, input_lengths, hidden=None):
         embedded = self.embedding(input_batch)
-        #packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
-        outputs, hidden = self.gru(embedded, hidden)
-        #outputs, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(outputs)
+        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
+        outputs, hidden = self.gru(packed, hidden)
+        print(outputs)
+        outputs, output_length = torch.nn.utils.rnn.pad_packed_sequence(outputs)
         # Sum bidirectional outputs
-        #outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:]
+        # outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:]
 
         return outputs, hidden
 

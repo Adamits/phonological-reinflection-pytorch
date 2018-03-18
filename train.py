@@ -72,7 +72,7 @@ OA    """
 
     loss = 0
 
-    encoder_outputs, encoder_hidden = encoder(batch.input.t(), encoder_hidden, batch.input_lengths)
+    encoder_outputs, encoder_hidden = encoder(batch.input.t(), batch.input_lengths)
     encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
 
     decoder_input = Variable(torch.LongTensor([EOS_index] * batch.size))
@@ -136,7 +136,7 @@ OA    """
         encoder_optimizer.step()
         decoder_optimizer.step()
 
-        print(prof)
+    print(prof)
     return loss.data[0]
 
 def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=0.01, batch_size=5, teacher_forcing=True):
