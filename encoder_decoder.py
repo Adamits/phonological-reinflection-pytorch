@@ -18,9 +18,9 @@ class EncoderRNN(nn.Module):
 
     def forward(self, input_batch, input_lengths, hidden=None):
         embedded = self.embedding(input_batch)
-        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
-        outputs, hidden = self.gru(packed, hidden)
-        outputs, output_length = torch.nn.utils.rnn.pad_packed_sequence(outputs)
+        #packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
+        outputs, hidden = self.gru(embedded, hidden)
+        #outputs, output_length = torch.nn.utils.rnn.pad_packed_sequence(outputs)
         # Sum bidirectional outputs
         outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:]
 
@@ -67,12 +67,9 @@ class AttnDecoderRNN(nn.Module):
         # Resize softmax to 1 x 1 x seq_len
         attn_weights = F.softmax(attn_energies, dim=1).unsqueeze(1)
 
-        with torch.autograd.profiler.profile() as prof:
-            # 'Apply' attention by taking weights * encoder outputs
-            context = torch.bmm(attn_weights,
-                encoder_outputs.transpose(0, 1))
-
-        print(prof)
+        # 'Apply' attention by taking weights * encoder outputs
+        context = torch.bmm(attn_weights,
+                            encoder_outputs.transpose(0, 1))
 
         context = context.transpose(0, 1)
         output = torch.cat((embedded, context), 2)
@@ -87,9 +84,15 @@ class AttnDecoderRNN(nn.Module):
         # and the attn_wights applied to encoder outputs
         # Throught the output MLP
         output = F.log_softmax(self.out(torch.cat((output, context), 1)), dim=1)
+
         return output, hidden, attn_weights
 
     def _attend(self, encoder_outputs, hidden, batch_size, max_len, attn_energies):
+        """
+        Takes the output of the encoder over the entire sequence, the last hidden state,
+        the sizes, and an empty energies matrix. Computes the score, or attention 'energy'
+        for the entire batch, for the entire sequence
+        """
         def _score(h, encoder_output):
             # Run the attn MLP over the concat of a hidden state and
             # encoder_output, along axis 1
@@ -108,10 +111,3 @@ class AttnDecoderRNN(nn.Module):
                 attn_energies[b, i] = _score(hidden[:, b], encoder_outputs[i, b].unsqueeze(0))
 
         return attn_energies
-
-    def initHidden(self, use_cuda):
-        result = Variable(torch.zeros(1, 1, self.hidden_size))
-        if use_cuda:
-            return result.cuda()
-        else:
-            return result

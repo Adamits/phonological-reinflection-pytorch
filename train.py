@@ -19,7 +19,7 @@ class Batch():
         self.output = [d[1] for d in data]
         self.input_lengths = [len(i) for i in self.input]
         # Because it is sorted, first input in the batch should have max_length
-        self.max_length_in = self.input_lengths[0]
+        self.max_length_in = max(self.input_lengths)
         self.output_lengths = [len(o) for o in self.output]
         # We do not expect the outputs to be sorted though... (but we can expect that they might
         # have SOME similarity in length to input)
@@ -86,10 +86,12 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
     all_decoder_outputs = all_decoder_outputs.cuda() if use_cuda else all_decoder_outputs
 
     print("Decoding...")
-
+    print(batch.output_lengths)
+    print(batch.max_length_out)
     if teacher_forcing:
             # Run through decoder one time step at a time
             for t in range(batch.max_length_out):
+                print("character %i" % t)
                 decoder_output, decoder_hidden, decoder_attn = decoder(
                     decoder_input, decoder_hidden, encoder_outputs, use_cuda
                 )
@@ -145,8 +147,9 @@ def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=
     loss_function = loss_function.cuda() if use_cuda else loss_function
     print("Preparing batches...")
     sorted_pairs = pairs.copy()
-    # Sort the data by the length of the document, so that batches are of similar length
-    sorted_pairs.sort(key=lambda x: len(x[0]), reverse=True)
+    # Sort the data by the length of the output so that batches have similar lengths
+    # We will perform more computations over output than input, presumably
+    sorted_pairs.sort(key=lambda x: len(x[1]), reverse=True)
 
     # Split sorted_data into n batches each of size batch_length
     batches = [sorted_pairs[i:i+batch_size] for i in range(0, len(sorted_pairs), batch_size)]
@@ -193,6 +196,8 @@ if __name__=='__main__':
     use_cuda = args.gpu
 
     if use_cuda:
+        # This should put all parameters of the state of encoder and decoder
+        # Onto the GPU.
         encoder1 = encoder1.cuda()
         attn_decoder1 = attn_decoder1.cuda()
 
