@@ -78,7 +78,7 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
     decoder_input = Variable(torch.LongTensor([EOS_index] * batch.size))
 
     # Use last (forward) hidden state from encoder
-    decoder_hidden = encoder_hidden
+    decoder_hidden = encoder_hidden[:-1, :, :]
 
     all_decoder_outputs = Variable(torch.zeros(batch.max_length_out, batch.size, decoder.output_size))
 
@@ -88,10 +88,12 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
         all_decoder_outputs = all_decoder_outputs.cuda()
 
     print("Decoding...")
-    """
+
     if teacher_forcing:
             # Run through decoder one time step at a time
             for t in range(batch.max_length_out):
+#                with torch.autograd.profiler.profile():
+#                    with torch.autograd.profiler.emit_nvtx() as prof:
                 decoder_output, decoder_hidden, decoder_attn = decoder(
                     decoder_input, decoder_hidden, encoder_outputs, use_cuda
                 )
@@ -132,6 +134,7 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
 
     print("Backpropogating loss...")
     loss.backward()
+
     print("Updating parameters...")
     encoder_optimizer.step()
     decoder_optimizer.step()
@@ -167,7 +170,7 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
                     break
 
                 all_decoder_outputs[t] = decoder_output
-
+  
         print("Computing loss...")
         loss = masked_cross_entropy(
             # batch x seq x classes
@@ -183,8 +186,8 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
         print("Updating parameters...")
         encoder_optimizer.step()
         decoder_optimizer.step()
-    
-    #print(prof)
+    """
+    # print(prof)
     return loss.data[0]
 
 def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=0.01, batch_size=5, teacher_forcing=True):
@@ -192,7 +195,6 @@ def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
     loss_function = nn.NLLLoss(ignore_index=PADDING_index)
     loss_function = loss_function.cuda() if use_cuda else loss_function
-    print(char2i)
     print("Preparing batches...")
     sorted_pairs = pairs.copy()
     # Sort the data by the length of the document, so that batches are of similar length
@@ -246,7 +248,7 @@ if __name__=='__main__':
         encoder1 = encoder1.cuda()
         attn_decoder1 = attn_decoder1.cuda()
 
-    trainIters(encoder1, attn_decoder1, data.pairs, char2i, 50, use_cuda, batch_size=200)
+    trainIters(encoder1, attn_decoder1, data.pairs, char2i, 50, use_cuda, batch_size=400)
 
     torch.save(encoder1, "./models/%s-encoder" % args.lang)
     torch.save(attn_decoder1, "./models/%s-decoder" % args.lang)
