@@ -11,55 +11,6 @@ EOS_index=0
 PADDING_SYMBOL = "@"
 PADDING_index=0
 
-class Batch():
-    def __init__(self, data):
-        self.symbol = PADDING_SYMBOL
-        self.size = (len(data))
-        self.input = [d[0] for d in data]
-        self.output = [d[1] for d in data]
-        self.input_lengths = [len(i) for i in self.input]
-        # Because it is sorted, first input in the batch should have max_length
-        self.max_length_in = max(self.input_lengths)
-        self.output_lengths = [len(o) for o in self.output]
-        # We do not expect the outputs to be sorted though... (but we can expect that they might
-        # have SOME similarity in length to input)
-        self.max_length_out = max(self.output_lengths)
-
-    def input_variable(self, char2i, use_cuda):
-        """
-        Turn the input into a tensor of batch_size x batch_length
-
-        Returns the input
-        """
-        tensor = torch.LongTensor(self.size, self.max_length_in)
-
-        for i, word in enumerate(self.input):
-            ids = [char2i[c] for c in word]
-            # Pad the difference with symbol
-            ids = ids + [char2i[self.symbol]] * (self.max_length_in - len(word))
-            tensor[i] = torch.LongTensor(ids)
-
-        self.input = Variable(tensor).cuda() if use_cuda else Variable(tensor)
-        return self.input
-
-    def output_variable(self, char2i, use_cuda):
-        """
-        Turn the output into a tensor of batch_size x batch_length
-
-        Returns the output
-        """
-        tensor = torch.LongTensor(self.size, self.max_length_out)
-
-        for i, word in enumerate(self.output):
-            ids = [char2i[c] for c in word]
-            # Pad the difference with symbol
-            ids = ids + [char2i[self.symbol]] * (self.max_length_out - len(word))
-            tensor[i] = torch.LongTensor(ids)
-
-        self.output = Variable(tensor).cuda() if use_cuda else Variable(tensor)
-        return self.output
-
-
 def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda, teacher_forcing = True):
     """
     Compute the loss and make the parameter updates for a single sequence,

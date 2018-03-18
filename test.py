@@ -4,8 +4,56 @@ import pickle
 from encoder_decoder import *
 from data_prep import *
 
-def predict(encoder, decoder, sentence, char2i, use_cuda, max_length=50):
+def evaluate(batches, encoder, decoder, char2i, use_cuda, loss=nn.NLLLoss(ignore_index=PADDING_index)):
+    encoder.eval()
+    decoder.eval()
+    correct = 0
+    total = 0
+
+    for batch in batches:
+        preds = predict(batch, encoder, decoder, char2i, use_cuda)
+        targets = batch.output.t()
+        target_lengths = batch.output_lengths
+
+
+
+        for i, target in enumerate(targets):
+            total += 1
+            if target[:target_lengths[i]] == preds[:target_lengths[i]]
+                correct += 1
+
+    print("ACC: %.4f" % (correct = total))
+
+
+
+
+def predict(batch, encoder, decoder, char2i, use_cuda):
     i2char = {i: w for w, i in char2i.items()}
+
+    encoder_hidden = encoder.initHidden(batch.size, use_cuda)
+
+    encoder_outputs, encoder_hidden = encoder(batch.input.t(), batch.input_lengths)
+    encoder_outputs = encoder_outputs.cuda() if use_cuda else encoder_outputs
+
+    decoder_input = Variable(torch.LongTensor([EOS_index] * batch.size))
+    decoder_input = decoder_input.cuda() if use_cuda else decoder_input
+
+    # Use last (forward) hidden state from encoder
+    decoder_hidden = encoder_hidden[:-1, :, :]
+
+    all_decoder_outputs = Variable(torch.zeros(batch.max_length_out, batch.size, decoder.output_size))
+    all_decoder_outputs = all_decoder_outputs.cuda() if use_cuda else all_decoder_outputs
+
+    for t in range(batch.max_length_out):
+            decoder_output, decoder_hidden, decoder_attn = decoder(
+                decoder_input, decoder_hidden, encoder_outputs, use_cuda
+            )
+
+            topv, topi = decoder_output.data.topk(1)
+            all_preds[t] = topi
+            decoder_input = topi
+
+    """
     input_variable = variableFromSentence(sentence, char2i, use_cuda)
     input_length = input_variable.size()[0]
     encoder_hidden = encoder.initHidden(use_cuda)
@@ -38,7 +86,7 @@ def predict(encoder, decoder, sentence, char2i, use_cuda, max_length=50):
                 decoder_input = Variable(torch.LongTensor([[ni]]))
                 decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 
-
+    """
     return decoded_words, decoder_attentions[:di + 1]
 
 if __name__=='__main__':
