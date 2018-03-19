@@ -9,11 +9,9 @@ from data_prep import *
 
 EOS="<EOS>"
 EOS_index=0
-PADDING_SYMBOL = "@"
-PADDING_index=0
 
-def evaluate_dev(pairs, encoder, decoder, char2i, use_cuda):
-    batches = get_batches(pairs)
+def evaluate_dev(pairs, encoder, decoder, char2i, use_cuda, batch_size=100):
+    batches = get_batches(pairs, batch_size, char2i, use_cuda)
     return evaluate(batches, encoder, decoder, char2i, use_cuda)
 
 def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda, teacher_forcing = True):
@@ -41,16 +39,17 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
     all_decoder_outputs = all_decoder_outputs.cuda() if use_cuda else all_decoder_outputs
 
     if teacher_forcing:
-            # Run through decoder one time step at a time
-            for t in range(batch.max_length_out):
-                decoder_output, decoder_hidden, decoder_attn = decoder(
-                    decoder_input, decoder_hidden, encoder_outputs, use_cuda
-                )
+        # Run through decoder one time step at a time
+        # Skip first index, as we have already made that EOS
+        for t in range(1, batch.max_length_out-1):
+            decoder_output, decoder_hidden, decoder_attn = decoder(
+                decoder_input, decoder_hidden, encoder_outputs, use_cuda
+            )
 
-                all_decoder_outputs[t] = decoder_output
-                # Next input. Transpose to select along the column,
-                # one from each batch at index t.
-                decoder_input = batch.output.t()[t]
+            all_decoder_outputs[t] = decoder_output
+            # Next input. Transpose to select along the column,
+            # one from each batch at index t.
+            decoder_input = batch.output.t()[t]
 
     else:
         for t in range(batch.max_length_out):
@@ -90,9 +89,10 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
 def trainIters(encoder, decoder, pairs, dev_pairs, char2i, epochs, use_cuda, learning_rate=0.01, batch_size=50, teacher_forcing=True):
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-    loss_function = nn.NLLLoss(ignore_index=PADDING_index)
+    loss_function = nn.NLLLoss(ignore_index=EOS_index)
     loss_function = loss_function.cuda() if use_cuda else loss_function
 
+    pairs = add_EOS_to_pair(pairs)
     print("Preparing batches...")
     batches = get_batches(pairs, batch_size, char2i, use_cuda)
 
