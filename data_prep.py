@@ -118,7 +118,9 @@ class Batch():
         tensor = torch.LongTensor(self.size, self.max_length_in)
 
         for i, word in enumerate(self.input):
-            ids = [char2i[c] for c in word]
+            # Arbitrarily return character with index 5
+            # If we have not seen this input
+            ids = [char2i.get(c, 5) for c in word]
             # Pad the difference with symbol
             ids = ids + [char2i[self.symbol]] * (self.max_length_in - len(word))
             tensor[i] = torch.LongTensor(ids)
@@ -135,7 +137,7 @@ class Batch():
         tensor = torch.LongTensor(self.size, self.max_length_out)
 
         for i, word in enumerate(self.output):
-            ids = [char2i[c] for c in word]
+            ids = [char2i.get(c, 5) for c in word]
             # Pad the difference with symbol
             ids = ids + [char2i[self.symbol]] * (self.max_length_out - len(word))
             tensor[i] = torch.LongTensor(ids)
@@ -147,7 +149,7 @@ def indexesFromSentence(sentence, char2i):
     """
     return the list of indices, skipping unknown chars
     """
-    return [char2i[c] for c in sentence if c in char2i.keys()]
+    return [char2i.get(c, 5) for c in sentence]
 
 def variableFromSentence(sentence, char2i, use_cuda):
     indexes = indexesFromSentence(sentence, char2i)

@@ -11,7 +11,7 @@ EOS_index=0
 PADDING_SYMBOL = "@"
 PADDING_index=0
 
-def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda, teacher_forcing = True):
+def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda, i2char, teacher_forcing = True):
     """
     Compute the loss and make the parameter updates for a single sequence,
     where loss is the average of losses for each in the sequence
@@ -46,6 +46,7 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
                 # Next input. Transpose to select along the column,
                 # one from each batch at index t.
                 decoder_input = batch.output.t()[t]
+                
 
     else:
         for t in range(batch.max_length_out):
@@ -82,11 +83,13 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
 
     return loss.data[0]
 
-def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, learning_rate=0.01, batch_size=5, teacher_forcing=True):
+def trainIters(encoder, decoder, pairs, char2i, epochs, use_cuda, i2char=i2char, learning_rate=0.01, batch_size=5, teacher_forcing=True):
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
     loss_function = nn.NLLLoss(ignore_index=PADDING_index)
     loss_function = loss_function.cuda() if use_cuda else loss_function
+    i2char = {i: c for c, i in char2i.items()}
+    
     print("Preparing batches...")
     sorted_pairs = pairs.copy()
     # Sort the data by the length of the output so that batches have similar lengths

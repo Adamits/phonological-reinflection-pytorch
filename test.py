@@ -5,6 +5,8 @@ from encoder_decoder import *
 from data_prep import *
 
 def evaluate(batches, encoder, decoder, char2i, use_cuda, loss=nn.NLLLoss(ignore_index=PADDING_index)):
+    i2char = {i: w for w, i in char2i.items()}
+    print(i2char.keys())
     encoder.eval()
     decoder.eval()
     correct = 0
@@ -14,21 +16,25 @@ def evaluate(batches, encoder, decoder, char2i, use_cuda, loss=nn.NLLLoss(ignore
         preds = predict(batch, encoder, decoder, char2i, use_cuda)
         targets = batch.output.t()
         target_lengths = batch.output_lengths
+        print(target_lengths)
 
-
-
-        for i, target in enumerate(targets):
+        for i in range(batch.size):
             total += 1
-            if target[:target_lengths[i]] == preds[:target_lengths[i]]
+            targets = targets.type(torch.cuda.FloatTensor) if use_cuda else targets.type(torch.FloatTensor)
+            print(target_lengths[i])
+            print(i)
+            print("GOLD: ")
+            print([(i2char[int(c)], int(c)) for c in targets[:target_lengths[i], i]])
+            print("PREDS: ")
+            print([(i2char[int(c)], int(c)) for c in preds[:target_lengths[i], i]])
+            print("=============================")
+            if targets[:target_lengths[i], i].equal(preds[:target_lengths[i], i]):
                 correct += 1
 
-    print("ACC: %.4f" % (correct = total))
-
-
-
+    return correct / total
 
 def predict(batch, encoder, decoder, char2i, use_cuda):
-    i2char = {i: w for w, i in char2i.items()}
+    #i2char = {i: w for w, i in char2i.items()}
 
     encoder_hidden = encoder.initHidden(batch.size, use_cuda)
 
@@ -41,8 +47,8 @@ def predict(batch, encoder, decoder, char2i, use_cuda):
     # Use last (forward) hidden state from encoder
     decoder_hidden = encoder_hidden[:-1, :, :]
 
-    all_decoder_outputs = Variable(torch.zeros(batch.max_length_out, batch.size, decoder.output_size))
-    all_decoder_outputs = all_decoder_outputs.cuda() if use_cuda else all_decoder_outputs
+    all_preds = Variable(torch.zeros(batch.max_length_out, batch.size))
+    all_preds = all_preds.cuda() if use_cuda else all_preds
 
     for t in range(batch.max_length_out):
             decoder_output, decoder_hidden, decoder_attn = decoder(
@@ -50,6 +56,7 @@ def predict(batch, encoder, decoder, char2i, use_cuda):
             )
 
             topv, topi = decoder_output.data.topk(1)
+            topi = Variable(topi.squeeze(1))
             all_preds[t] = topi
             decoder_input = topi
 
@@ -87,7 +94,24 @@ def predict(batch, encoder, decoder, char2i, use_cuda):
                 decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 
     """
-    return decoded_words, decoder_attentions[:di + 1]
+    return all_preds
+
+def testIter(encoder, decoder, pairs, char2i, use_cuda, batch_size=100):
+    print("Preparing batches...")
+    sorted_pairs = pairs.copy()
+    # Sort the data by the length of the output so that batches have similar lengths
+    # We will perform more computations over output than input, presumably
+    sorted_pairs.sort(key=lambda x: len(x[1]), reverse=True)
+
+    # Split sorted_data into n batches each of size batch_length
+    batches = [sorted_pairs[i:i+batch_size] for i in range(0, len(sorted_pairs), batch_size)]
+    # Loop over indices so we can modify batches in place
+    for i in range(len(batches)):
+        batches[i] = Batch(batches[i])
+        batches[i].input_variable(char2i, use_cuda)
+        batches[i].output_variable(char2i, use_cuda)
+
+    return evaluate(batches, encoder, decoder, char2i, use_cuda)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Test the encoder decoder with reinflection data')
@@ -105,7 +129,7 @@ if __name__=='__main__':
     test_data = DataPrep(args.filename)
     char2i_file = open(args.char2i, 'rb')
 
-    train_char2i = pickle.load(char2i_file)
+    char2i = pickle.load(char2i_file)
     encoder = torch.load(args.encoderModel)
     decoder = torch.load(args.decoderModel)
 
@@ -114,7 +138,13 @@ if __name__=='__main__':
     if use_cuda:
         encoder = encoder.cuda()
         decoder = decoder.cuda()
-
+    else:
+        encoder = encoder.cpu()
+        decoder = decoder.cpu()
+        
+    acc = testIter(encoder, decoder, test_data.pairs, char2i, use_cuda)
+    print("ACC: %4f" % acc)
+"""
     acc = 0
     total = 0
     for isentence, osentence in test_data.pairs:
@@ -129,3 +159,4 @@ if __name__=='__main__':
         total += 1
 
     print("ACCURACY: %2f" % (acc / total) * 100)
+"""
