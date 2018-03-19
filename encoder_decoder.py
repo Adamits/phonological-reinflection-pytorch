@@ -5,6 +5,8 @@ from torch import optim
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
+import math
+
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size):
         # initialize all nn.Module attributes
@@ -18,11 +20,11 @@ class EncoderRNN(nn.Module):
 
     def forward(self, input_batch, input_lengths, hidden=None):
         embedded = self.embedding(input_batch)
-        #packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
-        outputs, hidden = self.gru(embedded, hidden)
-        #outputs, output_length = torch.nn.utils.rnn.pad_packed_sequence(outputs)
+        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
+        outputs, hidden = self.gru(packed, hidden)
+        outputs, output_length = torch.nn.utils.rnn.pad_packed_sequence(outputs)
         # Sum bidirectional outputs
-        outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:]
+        outputs = outputs[:, :, :self.hidden_size] + outputs[:, :, self.hidden_size:]
 
         return outputs, hidden
 
@@ -95,7 +97,6 @@ class AttnDecoderRNN(nn.Module):
 
         # Concat the embedded input char and the 'context' to be run through RNN
         output = torch.cat((embedded, context), 2)
-
         output, hidden = self.gru(output, hidden)
 
         # Make them both just B x H
