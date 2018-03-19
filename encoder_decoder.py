@@ -18,11 +18,9 @@ class EncoderRNN(nn.Module):
 
     def forward(self, input_batch, input_lengths, hidden=None):
         embedded = self.embedding(input_batch)
-        #packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
+        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
         outputs, hidden = self.gru(embedded, hidden)
-        #outputs, output_length = torch.nn.utils.rnn.pad_packed_sequence(outputs)
-        # Sum bidirectional outputs
-        outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:]
+        outputs, output_length = torch.nn.utils.rnn.pad_packed_sequence(outputs)
 
         return outputs, hidden
 

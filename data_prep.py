@@ -148,9 +148,9 @@ def get_batches(pairs, batch_size, char2i, use_cuda):
     Returns a list of batch objects for the entire set of paris.
     """
     sorted_pairs = pairs.copy()
-    # Sort the data by the length of the output so that batches have similar lengths
-    # We will perform more computations over output than input, presumably
-    sorted_pairs.sort(key=lambda x: len(x[1]), reverse=True)
+
+    # Sort by length of input so samples in batches have similar len
+    sorted_pairs.sort(key=lambda x: len(x[0]), reverse=True)
 
     # Split sorted_data into n batches each of size batch_length
     batches = [sorted_pairs[i:i+batch_size] for i in range(0, len(sorted_pairs), batch_size)]
