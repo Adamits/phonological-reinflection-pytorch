@@ -145,6 +145,25 @@ class Batch():
         self.output = Variable(tensor).cuda() if use_cuda else Variable(tensor)
         return self.output
 
+def get_batches(pairs, batch_size, char2i, use_cuda):
+    """
+    Returns a list of batch objects for the entire set of paris.
+    """
+    sorted_pairs = pairs.copy()
+    # Sort the data by the length of the output so that batches have similar lengths
+    # We will perform more computations over output than input, presumably
+    sorted_pairs.sort(key=lambda x: len(x[1]), reverse=True)
+
+    # Split sorted_data into n batches each of size batch_length
+    batches = [sorted_pairs[i:i+batch_size] for i in range(0, len(sorted_pairs), batch_size)]
+    # Loop over indices so we can modify batches in place
+    for i in range(len(batches)):
+        batches[i] = Batch(batches[i])
+        batches[i].input_variable(char2i, use_cuda)
+        batches[i].output_variable(char2i, use_cuda)
+
+    return batches
+
 def indexesFromSentence(sentence, char2i):
     """
     return the list of indices, skipping unknown chars

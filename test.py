@@ -4,7 +4,7 @@ import pickle
 from encoder_decoder import *
 from data_prep import *
 
-def evaluate(batches, encoder, decoder, char2i, use_cuda, loss=nn.NLLLoss(ignore_index=PADDING_index)):
+def evaluate(batches, encoder, decoder, char2i, use_cuda):
     i2char = {i: w for w, i in char2i.items()}
     print(i2char.keys())
     encoder.eval()
@@ -141,7 +141,7 @@ if __name__=='__main__':
     else:
         encoder = encoder.cpu()
         decoder = decoder.cpu()
-        
+
     acc = testIter(encoder, decoder, test_data.pairs, char2i, use_cuda)
     print("ACC: %4f" % acc)
 """
