@@ -97,6 +97,7 @@ class Batch():
     def __init__(self, data):
         self.symbol = EOS
         self.size = (len(data))
+        self.raw_in = [d[0] for d in data]
         self.input = [d[0] for d in data]
         self.output = [d[1] for d in data]
         self.input_lengths = [len(i) for i in self.input]
@@ -106,6 +107,34 @@ class Batch():
         # We do not expect the outputs to be sorted though... (but we can expect that they might
         # have SOME similarity in length to input)
         self.max_length_out = max(self.output_lengths)
+        self.mask_in = None
+        self.mask_out = None
+
+    def make_masks(self, use_cuda):
+        self.mask_in = self._make_mask(self.max_length_in, self.input_lengths, use_cuda)
+        self.mask_out = self._make_mask(self.max_length_out, self.output_lengths, use_cuda)
+
+    def _make_mask(self, max_len, lengths, use_cuda):
+        mask_type = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
+        # Get a vector of increasing ints 0 - max_len
+        seq_range = torch.range(0, max_len - 1).long()
+        # expand it to a matrix of batch size x max len, keeping the int form in every row
+        seq_range_expand = seq_range.unsqueeze(0).expand(self.size, max_len)
+        # make it a Variable
+        seq_range_expand = Variable(seq_range_expand)
+        seq_range_expand = seq_range_expand.cuda() if use_cuda else seq_range_expand
+
+        input_lengths = Variable(torch.LongTensor(lengths))
+        input_lengths = input_lengths.cuda() if use_cuda else input_lengths
+        # Now get the sequence lengths, where each row is ints representing the length of the sequence
+        seq_length_expand = (input_lengths.unsqueeze(1).expand_as(seq_range_expand))
+        # Return a matrix of 1's and 0s' with 1's being instances
+        # that are within sequence length, and 0's being instances that are
+        # outside of sequence length (and presumably padding)
+        mask_mat = seq_range_expand < seq_length_expand
+        mask_mat = 1 - mask_mat.long()
+
+        return mask_mat.type(mask_type)
 
     def input_variable(self, char2i, use_cuda):
         """
@@ -149,11 +178,7 @@ def get_batches(pairs, batch_size, char2i, use_cuda):
     """
     sorted_pairs = pairs.copy()
 
-<<<<<<< HEAD
-    # Sort by length of input so samples in batches have similar len
-=======
     # Sort by input length so that samples in the same batch have similar len
->>>>>>> 12703c330d1d83a4c88f22f19a70067caf25c198
     sorted_pairs.sort(key=lambda x: len(x[0]), reverse=True)
 
     # Split sorted_data into n batches each of size batch_length
@@ -163,10 +188,11 @@ def get_batches(pairs, batch_size, char2i, use_cuda):
         batches[i] = Batch(batches[i])
         batches[i].input_variable(char2i, use_cuda)
         batches[i].output_variable(char2i, use_cuda)
+        batches[i].make_masks(use_cuda)
 
     return batches
 
-def add_EOS_to_pair(pairs):
+def add_EOS_to_pairs(pairs):
     eos_pairs = []
 
     for inp, outp in pairs:

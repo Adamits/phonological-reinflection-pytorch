@@ -14,7 +14,7 @@ def evaluate_dev(pairs, encoder, decoder, char2i, use_cuda, batch_size=100):
     batches = get_batches(pairs, batch_size, char2i, use_cuda)
     return evaluate(batches, encoder, decoder, char2i, use_cuda)
 
-def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda, teacher_forcing = True):
+def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda, mask, i2char, teacher_forcing=True):
     """
     Compute the loss and make the parameter updates for a single sequence,
     where loss is the average of losses for each in the sequence
@@ -32,17 +32,24 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
     decoder_input = Variable(torch.LongTensor([EOS_index] * batch.size))
     decoder_input = decoder_input.cuda() if use_cuda else decoder_input
 
-    # Use last (forward) hidden state from encoder
-    decoder_hidden = encoder_hidden[:-1, :, :]
+    decoder_hidden = decoder.initHidden(batch_size)
 
     all_decoder_outputs = Variable(torch.zeros(batch.max_length_out, batch.size, decoder.output_size))
     all_decoder_outputs = all_decoder_outputs.cuda() if use_cuda else all_decoder_outputs
 
     if teacher_forcing:
         # Run through decoder one time step at a time
-        for t in range(batch.max_length_out):
-            decoder_output, decoder_hidden, decoder_attn = decoder(
-                decoder_input, decoder_hidden, encoder_outputs, use_cuda
+        # Start at one in order to skip the first EOS, which we have already initialized
+        for t in range(1, batch.max_length_out):
+            # Note mask is telling the attention mechanism which indices it should
+            # not care be attending to.
+            #print("character #%i of %i in train sequence!" % (t, batch.max_length_out))
+            #print(i2char[decoder_input[0].data[0]])
+            #print(batch.raw_in[0])
+            #print("(%i chars)" % len(batch.raw_in[0]))
+            # add attn arg back on left of =
+            decoder_output, decoder_hidden  = decoder(
+                decoder_input, decoder_hidden, encoder_outputs, use_cuda, mask
             )
 
             all_decoder_outputs[t] = decoder_output
@@ -57,8 +64,6 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
         )
 
             topv, topi = decoder_output.data.topk(1)
-            print(decoder_output)
-            print(topi)
             decoder_input = topi
 
             if ni == EOS:
@@ -90,6 +95,7 @@ def trainIters(encoder, decoder, pairs, dev_pairs, char2i, epochs, use_cuda, lea
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
     loss_function = nn.NLLLoss(ignore_index=EOS_index)
     loss_function = loss_function.cuda() if use_cuda else loss_function
+    i2char = {i: c for c, i in char2i.items()}
 
     pairs = pairs
     print("Preparing batches...")
@@ -101,7 +107,7 @@ def trainIters(encoder, decoder, pairs, dev_pairs, char2i, epochs, use_cuda, lea
         losses = []
 
         for batch in batches:
-            loss = train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda, teacher_forcing)
+            loss = train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda, batch.mask_in, i2char, teacher_forcing)
 
             losses.append(loss)
 
@@ -116,6 +122,8 @@ if __name__=='__main__':
                         help='the filename of the dev file to evaluate on')
     parser.add_argument('lang', metavar='lang',
                         help='The language that we are training on')
+    parser.add_argument('batch_size', metavar='batch_size',
+                        help='size of each mini-batch')
     parser.add_argument('epochs', metavar='epochs',
                         help='number of epochs to train the model')
     parser.add_argument('lr', metavar='learning_rate', help='learning rate for the optimizers')
@@ -123,13 +131,14 @@ if __name__=='__main__':
 
     args = parser.parse_args()
     hidden_size = 300
+    batch_size = int(args.batch_size)
     epochs = int(args.epochs)
     lr = float(args.lr)
     data = DataPrep(args.filename)
     dev_data = DataPrep(args.devfilename)
     input_size = len(data.char2i.keys())
     encoder1 = EncoderRNN(input_size+1, hidden_size)
-    attn_decoder1 = AttnDecoderRNN(hidden_size, input_size+1, dropout_p=0.01)
+    attn_decoder1 = AttnDecoderRNN(hidden_size, input_size+1, dropout_p=0.1)
 
     char2i = data.char2i
     # Store the character dictionary for use in testing
@@ -144,7 +153,10 @@ if __name__=='__main__':
         encoder1 = encoder1.cuda()
         attn_decoder1 = attn_decoder1.cuda()
 
-    trainIters(encoder1, attn_decoder1, data.pairs, dev_data.pairs, char2i, epochs, use_cuda, learning_rate=lr, batch_size=100)
+    # Wrap all sentences in EOS tags
+    pairs = add_EOS_to_pairs(data.pairs)
+    dev_pairs = add_EOS_to_pairs(dev_data.pairs)
+    trainIters(encoder1, attn_decoder1, pairs, dev_pairs, char2i, epochs, use_cuda, learning_rate=lr, batch_size=batch_size)
 
     torch.save(encoder1, "./models/%s-encoder" % args.lang)
     torch.save(attn_decoder1, "./models/%s-decoder" % args.lang)
