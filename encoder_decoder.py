@@ -99,7 +99,6 @@ class AttnDecoderRNN(nn.Module):
         self.out = nn.Linear(self.hidden_size, self.output_size)
 
     def forward(self, input, last_hidden, encoder_outputs, use_cuda, mask):
-        max_len = encoder_outputs.size(0)
         batch_size = encoder_outputs.size(1)
 
         # Get the embedding of the current input word (last output word)

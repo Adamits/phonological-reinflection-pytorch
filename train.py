@@ -56,7 +56,6 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
             # Next input. Transpose to select along the column,
             # one from each batch at index t.
             decoder_input = batch.output.t()[t]
-
     else:
         for t in range(batch.max_length_out):
             decoder_output, decoder_hidden, decoder_attn = decoder(
