@@ -133,7 +133,7 @@ class Batch():
         # outside of sequence length (and presumably padding)
         mask_mat = seq_range_expand < seq_length_expand
         mask_mat = 1 - mask_mat.long()
-        
+
         return mask_mat.type(mask_type)
 
     def input_variable(self, char2i, use_cuda):

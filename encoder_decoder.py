@@ -20,9 +20,9 @@ class EncoderRNN(nn.Module):
 
     def forward(self, input_batch, input_lengths, hidden=None):
         embedded = self.embedding(input_batch)
-        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
-        outputs, hidden = self.gru(packed, hidden)
-        outputs, output_length = torch.nn.utils.rnn.pad_packed_sequence(outputs)
+        #packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
+        outputs, hidden = self.gru(embedded, hidden)
+        #outputs, output_length = torch.nn.utils.rnn.pad_packed_sequence(outputs)
         # Sum bidirectional outputs
         # outputs = outputs[:, :, :self.hidden_size] + outputs[:, :, self.hidden_size:]
         return outputs, hidden
@@ -44,7 +44,6 @@ class Attention(nn.Module):
         self.v = nn.Parameter(torch.rand(hidden_size))
         stdv = 1. / math.sqrt(self.v.size(0))
         self.v.data.normal_(mean=0, std=stdv)
-                        
 
     def forward(self, hidden, encoder_outputs, mask):
         '''
@@ -105,33 +104,35 @@ class AttnDecoderRNN(nn.Module):
         embedded = self.embedding(input).view(1, batch_size, self.hidden_size) # [1 x B x H]
         embedded = self.dropout(embedded)
 
+        """
+        REMOVE ATTN FOR NOW
         # Get the attn weights from the Attention modeoutputs
-#        attn_weights = self.attn(hidden[-1], encoder_outputs, mask)
-#        print("MASKING AND ATTN")
-#        print(mask.size())
-#        print(attn_weights[0])
-#        print(attn_weights[0].size())
+        attn_weights = self.attn(hidden[-1], encoder_outputs, mask)
+        print("MASKING AND ATTN")
+        print(mask.size())
+        print(attn_weights[0])
+        print(attn_weights[0].size())
         # 'Apply' attention by taking weights * encoder outputs
         # B x 1 x H
-#        context = torch.bmm(attn_weights,
-#                            encoder_outputs.transpose(0, 1))
-#        context = context.transpose(0, 1) # Make it [1 x B x H]
+        context = torch.bmm(attn_weights,
+                            encoder_outputs.transpose(0, 1))
+        context = context.transpose(0, 1) # Make it [1 x B x H]
 
         # Concat the embedded input char and the 'context' to be run through RNN
-#        output = torch.cat((embedded, context), 2)
-
+        output = torch.cat((embedded, context), 2)
+        """
         last_encoder_output= encoder_outputs[-1].unsqueeze(0)
         output = torch.cat((embedded, last_encoder_output), 2)
         output, hidden = self.gru(output, last_hidden)
         # Make them both just B x H
         output = output.squeeze(0)
-#        context = context.squeeze(0)
+        # context = context.squeeze(0)
 
         # Decoder softmax over the result of running
         # the concatenation of the decoder RNN output
         # and the attn_wights applied to encoder outputs
         # Through the output MLP
-#        output = F.log_softmax(self.out(torch.cat((output, context), 1)), dim=1)
+        # output = F.log_softmax(self.out(torch.cat((output, context), 1)), dim=1)
         output = F.log_softmax(self.out(output), dim=1)
         return output, hidden
 

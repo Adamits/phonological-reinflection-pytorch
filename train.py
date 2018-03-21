@@ -36,7 +36,7 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
 
     all_decoder_outputs = Variable(torch.zeros(batch.max_length_out, batch.size, decoder.output_size))
     all_decoder_outputs = all_decoder_outputs.cuda() if use_cuda else all_decoder_outputs
-    
+
     if teacher_forcing:
         # Run through decoder one time step at a time
         # Start at one in order to skip the first EOS, which we have already initialized
@@ -99,12 +99,12 @@ def trainIters(encoder, decoder, pairs, dev_pairs, char2i, epochs, use_cuda, lea
     pairs = pairs
     print("Preparing batches...")
     batches = get_batches(pairs, batch_size, char2i, use_cuda)
-    
+
     for epoch in range(1, epochs + 1):
         print("EPOCH %i" % epoch)
         random.shuffle(batches)
         losses = []
-        
+
         for batch in batches:
             loss = train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_function, use_cuda, batch.mask_in, i2char, teacher_forcing)
 
