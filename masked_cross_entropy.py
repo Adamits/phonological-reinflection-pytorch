@@ -49,6 +49,7 @@ def masked_cross_entropy(logits, target, length, use_cuda):
     losses_flat = -torch.gather(log_probs_flat, dim=1, index=target_flat)
     # losses: (batch, max_len)
     losses = losses_flat.view(*target.size())
+    # Only look at loss for each character in the sequence that we care about
     # mask: (batch, max_len)
     mask = sequence_mask(sequence_length=length, max_len=target.size(1))
     losses = losses * mask.float()

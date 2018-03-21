@@ -40,8 +40,7 @@ def train(batch, encoder, decoder, encoder_optimizer, decoder_optimizer, loss_fu
 
     if teacher_forcing:
         # Run through decoder one time step at a time
-        # Skip first index, as we have already made that EOS
-        for t in range(1, batch.max_length_out-1):
+        for t in range(batch.max_length_out):
             decoder_output, decoder_hidden, decoder_attn = decoder(
                 decoder_input, decoder_hidden, encoder_outputs, use_cuda
             )
@@ -92,7 +91,7 @@ def trainIters(encoder, decoder, pairs, dev_pairs, char2i, epochs, use_cuda, lea
     loss_function = nn.NLLLoss(ignore_index=EOS_index)
     loss_function = loss_function.cuda() if use_cuda else loss_function
 
-    pairs = add_EOS_to_pair(pairs)
+    pairs = pairs
     print("Preparing batches...")
     batches = get_batches(pairs, batch_size, char2i, use_cuda)
 
@@ -117,17 +116,20 @@ if __name__=='__main__':
                         help='the filename of the dev file to evaluate on')
     parser.add_argument('lang', metavar='lang',
                         help='The language that we are training on')
+    parser.add_argument('epochs', metavar='epochs',
+                        help='number of epochs to train the model')
     parser.add_argument('lr', metavar='learning_rate', help='learning rate for the optimizers')
     parser.add_argument('--gpu',action='store_true',  help='tell the system to use a gpu if you have cuda set up')
 
     args = parser.parse_args()
     hidden_size = 300
+    epochs = int(args.epochs)
     lr = float(args.lr)
     data = DataPrep(args.filename)
     dev_data = DataPrep(args.devfilename)
     input_size = len(data.char2i.keys())
     encoder1 = EncoderRNN(input_size+1, hidden_size)
-    attn_decoder1 = AttnDecoderRNN(hidden_size, input_size+1, dropout_p=0.3)
+    attn_decoder1 = AttnDecoderRNN(hidden_size, input_size+1, dropout_p=0.01)
 
     char2i = data.char2i
     # Store the character dictionary for use in testing
@@ -142,7 +144,7 @@ if __name__=='__main__':
         encoder1 = encoder1.cuda()
         attn_decoder1 = attn_decoder1.cuda()
 
-    trainIters(encoder1, attn_decoder1, data.pairs, dev_data.pairs, char2i, 50, use_cuda, learning_rate=lr, batch_size=400)
+    trainIters(encoder1, attn_decoder1, data.pairs, dev_data.pairs, char2i, epochs, use_cuda, learning_rate=lr, batch_size=100)
 
     torch.save(encoder1, "./models/%s-encoder" % args.lang)
     torch.save(attn_decoder1, "./models/%s-decoder" % args.lang)

@@ -149,7 +149,11 @@ def get_batches(pairs, batch_size, char2i, use_cuda):
     """
     sorted_pairs = pairs.copy()
 
+<<<<<<< HEAD
     # Sort by length of input so samples in batches have similar len
+=======
+    # Sort by input length so that samples in the same batch have similar len
+>>>>>>> 12703c330d1d83a4c88f22f19a70067caf25c198
     sorted_pairs.sort(key=lambda x: len(x[0]), reverse=True)
 
     # Split sorted_data into n batches each of size batch_length

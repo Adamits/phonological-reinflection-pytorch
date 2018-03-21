@@ -5,6 +5,8 @@ from torch import optim
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
+import math
+
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size):
         # initialize all nn.Module attributes
@@ -19,8 +21,10 @@ class EncoderRNN(nn.Module):
     def forward(self, input_batch, input_lengths, hidden=None):
         embedded = self.embedding(input_batch)
         packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
-        outputs, hidden = self.gru(embedded, hidden)
+        outputs, hidden = self.gru(packed, hidden)
         outputs, output_length = torch.nn.utils.rnn.pad_packed_sequence(outputs)
+        # Sum bidirectional outputs
+        outputs = outputs[:, :, :self.hidden_size] + outputs[:, :, self.hidden_size:]
 
         return outputs, hidden
 
@@ -37,7 +41,7 @@ class Attention(nn.Module):
         self.hidden_size = hidden_size
         self.attn = nn.Linear(self.hidden_size, hidden_size)
 
-    def forward(self, hidden, encoder_outputs):
+    def forward(self, hidden, encoder_outputs, mask):
         '''
         :param hidden:
             previous hidden state of the decoder, in shape (layers*directions,B,H)
@@ -48,8 +52,13 @@ class Attention(nn.Module):
         '''
         max_len = encoder_outputs.size(0)
         H = hidden.unsqueeze(1)
-        encoder_outputs = encoder_outputs.transpose(0,1) # transpose for [B*T*H]
-        attn_energies = self.score(H,encoder_outputs) # compute attention score
+        # transpose for [B*T*H]
+        encoder_outputs = encoder_outputs.transpose(0,1)
+        # compute attention score
+        attn_energies = self.score(H,encoder_outputs)
+        # Mask the attentions: set indices that are padding to -inf,
+        # which will have 0 value in the softmax.
+        attn_energies.data.masked_fill_(self.mask, -float('inf'))
         return F.softmax(attn_energies).unsqueeze(1) # normalize with softmax
 
     def score(self, hidden, encoder_outputs):
@@ -93,7 +102,6 @@ class AttnDecoderRNN(nn.Module):
 
         # Concat the embedded input char and the 'context' to be run through RNN
         output = torch.cat((embedded, context), 2)
-
         output, hidden = self.gru(output, hidden)
 
         # Make them both just B x H
