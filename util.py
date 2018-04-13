@@ -1,3 +1,7 @@
+def get_phones(epi, text):
+  phones = epi.transliterate(text)
+  return phones
+
 def get_lookup():
   """
   Note that we are maping both Persian and Farsi to the farsilanguage code..
