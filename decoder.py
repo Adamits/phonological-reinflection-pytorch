@@ -12,8 +12,6 @@ class Attn(nn.Module):
         self.attn1 = nn.Linear(self.hidden_size_input +\
                                self.hidden_size, self.hidden_size)
         self.attn2 = nn.Linear(self.hidden_size, 1)
-        #self.combine = nn.Parameter(torch.rand(self.hidden_size))
-        #self.attn = nn.Linear(self.hidden_size_input + self.hidden_size, 1)
 
     def forward(self, hidden, encoder_outputs, mask):
         """
@@ -21,7 +19,6 @@ class Attn(nn.Module):
         at all timesteps, and the previous hiddens tate in the GRU.
         """
         # Make them both B x seq_length x H
-        #H = hidden.transpose(0,1)
         H = hidden.repeat(encoder_outputs.size(0), 1, 1).transpose(0, 1)
         encoder_outputs = encoder_outputs.transpose(0, 1)
         
@@ -41,22 +38,15 @@ class Attn(nn.Module):
         through the MLP, and taking dot product with previous
         hidden state of the GRU
         """
-        # Run through MLP, along axis 2, transposing for:
-        # B x H x seq_len
-        #scores = torch.cat((encoder_outputs, hidden), 2)
-        #scores = self.attn(scores)
-        #tanh = torch.nn.Tanh()
-        #scores = tanh(self.attn(torch.cat([encoder_outputs,\
-        #                   hidden], 2)).transpose(2, 1))
         tanh = torch.nn.Tanh()
-        attn1 = tanh(self.attn1(torch.cat([encoder_outputs,\
+        # Concat and run through Linear layer,
+        # applying a non-linearity
+        # tanh(X * W + b), giving B x H x seq_len
+        attn1_output = tanh(self.attn1(torch.cat([encoder_outputs,\
                                       hidden], 2)))
-        scores = self.attn2(attn1)
-        # Should give pairwise product of last hidden_state and
-        # the encoder output for each timestep in the input sequence
-        #c = self.combine.repeat(scores.shape[0], 1, 1)
-        #scores = torch.bmm(c, scores)
-        #scores = torch.bmm(hidden, scores)
+        # Run through second Linear layer
+        # W * attn1_output + b
+        scores = self.attn2(attn1_output)
         # return B x seq_len
         return scores.squeeze(2)
         

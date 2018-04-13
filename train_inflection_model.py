@@ -7,7 +7,7 @@ from decoder import *
 from data import *
 from evaluate import evaluate
 
-def train(pairs, dev_pairs, lang, encoder, acceptor, loss_function, optimizer, use_cuda, batch_size=100, epochs=20, lr=.01, clip=2):
+def train(pairs, dev_pairs, lang, encoder, decoder, loss_function, optimizer, use_cuda, batch_size=100, epochs=20, lr=.01, clip=2):
     random.shuffle(pairs)
     train_batches = get_batches(pairs, batch_size,\
                 char2i, PAD_symbol, use_cuda)
@@ -54,7 +54,7 @@ def train(pairs, dev_pairs, lang, encoder, acceptor, loss_function, optimizer, u
                 # averaging the entire batch
                 losses.append(loss.sum())
 
-                # The next input is the next target
+                # The next input is the next target (Teacher Forcing)
                 # char in the sequence
                 decoder_input = batch.output_variable.t()[t]
 
@@ -67,12 +67,12 @@ def train(pairs, dev_pairs, lang, encoder, acceptor, loss_function, optimizer, u
             all_losses.append(seq_loss)
 
             # Gradient norm clipping for updates
-            nn.utils.clip_grad_norm(list(encoder.parameters()) + list(decoder.parameters()), clip)
-            for p in list(encoder.parameters()) + list(decoder.parameters()):
+            nn.utils.clip_grad_norm(list(encoder.parameters())\
+                                + list(decoder.parameters()), clip)
+            for p in list(encoder.parameters()) +\
+            list(decoder.parameters()):
                 p.data.add_(-lr, p.grad.data)
 
-            # optimizer.step()
-                
         print("LOSS: %4f" % (sum(all_losses)/ \
                              len(all_losses)))
 
@@ -80,7 +80,7 @@ def train(pairs, dev_pairs, lang, encoder, acceptor, loss_function, optimizer, u
                  batch_size, PAD_symbol, use_cuda)
         
         torch.save(encoder, "./models/encoder-%s" % lang)
-        torch.save(acceptor, "./models/acceptor-%s" % lang)
+        torch.save(decoder, "./models/decoder-%s" % lang)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser("Train")
