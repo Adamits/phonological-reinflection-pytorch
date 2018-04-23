@@ -1,0 +1,3 @@
+#! /bin/bash
+ROOT=~/phonological-reinflection-pytorch
+python "$ROOT"/train_inflection_model_features.py "$ROOT"/data/german-train-high "$ROOT"/data/german-dev german high 100 .08 1.5

@@ -5,46 +5,41 @@ import pickle
 from encoder import *
 from decoder import *
 from data import *
-from evaluate import evaluate
+from evaluate import evaluate, featureEvaluate
 
-def train(pairs, dev_pairs, lang, setting, encoder, decoder, loss_function, optimizer, data_format, use_cuda, batch_size=100, epochs=20, lr=.01, clip=2):
-    random.shuffle(pairs)
-    train_batches = get_batches(pairs, batch_size,\
-                char2i, PAD_symbol, use_cuda)
+def train(pairs, dev_pairs, lang, setting, encoder, decoder, char2i,\
+          loss_function, optimizer, data_format, batch_size, use_cuda,\
+          epochs=20, lr=.01, clip=2):
+
     for i in range(epochs):
         print("EPOCH: %i" % i)
-        random.shuffle(train_batches)
 
+        random.shuffle(pairs)
         all_losses = []
-        for batch in train_batches:
+        for _, inp, _, out in pairs:
             optimizer.zero_grad()
 
             # Returns tensors with the batch dims
             enc_out, enc_hidden =\
-                    encoder(batch.input_variable.t())
+                    encoder(inp)
             
             decoder_input = Variable(\
-                    torch.LongTensor([EOS_index] *\
-                    batch.size))
+                    torch.LongTensor([EOS_index]))
             decoder_input = decoder_input.cuda()\
                     if use_cuda else decoder_input
 
             # Set hidden state to decoder's h0 of batch_size
-            decoder_hidden = decoder.init_hidden(batch.size)
+            decoder_hidden = decoder.init_hidden()
 
-            targets = batch.output_variable.t()
+            targets = out
             losses=[]
 
-            for t in range(1, batch.max_length_out):
+            for t in range(1, len(out)):
                 decoder_output, decoder_hidden=\
                     decoder(decoder_input,\
                             decoder_hidden,\
-                            enc_out, batch.size,\
-                            use_cuda, batch.input_mask)
+                            enc_out, use_cuda)
 
-                # Find the loss for a single character, to be averaged
-                # over all non-padding predictions. Squeeze the batch\
-                # dim =1 off of the dec output
                 loss = loss_function(\
                         decoder_output.squeeze(0),\
                         targets[t])
@@ -56,28 +51,30 @@ def train(pairs, dev_pairs, lang, setting, encoder, decoder, loss_function, opti
 
                 # The next input is the next target (Teacher Forcing)
                 # char in the sequence
-                decoder_input = batch.output_variable.t()[t]
+                decoder_input = targets[t]
 
             # Get average loss by all loss values
             # / number of values discounting padding
-            seq_loss = sum(losses) / sum(batch.lengths_out)
+            seq_loss = sum(losses) /len(losses)
 
             seq_loss.backward()
 
-            all_losses.append(seq_loss)
+            all_losses.append(seq_loss.data[0])
 
+            params = list(encoder.parameters())\
+                     + list(decoder.parameters())
             # Gradient norm clipping for updates
-            nn.utils.clip_grad_norm(list(encoder.parameters())\
-                                + list(decoder.parameters()), clip)
-            for p in list(encoder.parameters()) +\
-            list(decoder.parameters()):
+            nn.utils.clip_grad_norm(params, clip)
+
+            for p in params:
                 p.data.add_(-lr, p.grad.data)
 
         print("LOSS: %4f" % (sum(all_losses)/ \
                              len(all_losses)))
 
-        evaluate(encoder, decoder, char2i, dev_pairs,\
-                 batch_size, PAD_symbol, use_cuda)
+        eval_message = featureEvaluate(encoder, decoder, char2i,\
+                                       dev_pairs, use_cuda)
+        print(eval_message)
         
         torch.save(encoder, "/home/adam/phonological-reinflection-pytorch/models/%s/encoder-%s-%s" % (setting, lang, data_format))
         torch.save(decoder, "/home/adam/phonological-reinflection-pytorch/models/%s/decoder-%s-%s" % (setting, lang, data_format))
@@ -92,12 +89,8 @@ if __name__=='__main__':
                         'the name of the language')
     parser.add_argument('setting', metavar='setting', help=\
                         'low/medium/high')
-    parser.add_argument('data_format', metavar='data_format',\
-                        help='text, phone, or feature')
     parser.add_argument('epochs', metavar='epochs', help=\
                         'number of epochs to train')
-    parser.add_argument('batch_size', metavar='bs', help=\
-                        'the size of each mini-batch')
     parser.add_argument('lr', metavar='lr', help=\
                         'learning rate for the optimizer')
     parser.add_argument('clip', metavar='clip', help=\
@@ -108,17 +101,7 @@ if __name__=='__main__':
     args = parser.parse_args()
     lang = args.lang
     setting = args.setting
-    data_format = args.data_format
-    if data_format == "text":
-        data = Data(args.fn)
-        dev_data = Data(args.devfn)
-    elif data_format == "phone":
-        data = PhoneData(args.fn, lang)
-        dev_data = PhoneData(args.fn, lang)
-    elif data_format == "feature":
-        raise Exception("unimplemented feature")
     epochs = int(args.epochs)
-    batch_size = int(args.batch_size)
     lr = float(args.lr)
     clip = float(args.clip)
     use_cuda = args.gpu
@@ -130,19 +113,38 @@ if __name__=='__main__':
     UNK_index = 2
     EMBEDDING_SIZE = 100
     HIDDEN_SIZE = 100
+    
+    data_format = "feature"
+    data = DistinctiveFeatureData(args.fn, lang)
+    dev_data = DistinctiveFeatureData(args.devfn, lang)
 
+    # This is for the output character space
+    # Used for decoding
     char2i = data.char2i
-    input_size = output_size = len(char2i.keys())
+    # Need to get so we can save it, and
+    # Use it for testing later
+    symbols2i = data.symbols2i
 
-    char_output = open(\
-        '/home/adam/phonological-reinflection-pytorch/models/%s/char2i-%s-%s.pkl' %\
-        (setting, lang, data_format), 'wb')
+    print(char2i)
+    pairs = DistinctiveFeatureData.encode_examples(\
+                            data.examples, symbols2i, char2i)
+    dev_pairs = DistinctiveFeatureData.encode_examples(\
+                            dev_data.examples, symbols2i, char2i)
+    
+    # +1 for ' ' 
+    input_size = len(data.feature_vocab + data.symbol_vocab) + 1
+    output_size = len(char2i.keys())
+
+    char_output = open('/home/adam/phonological-reinflection-pytorch/models/%s/char2i-%s-%s.pkl' % (setting, lang, data_format), 'wb')
     pickle.dump(char2i, char_output)
+
+    symbol_output = open('/home/adam/phonological-reinflection-pytorch/models/%s/symbols2i-%s-%s.pkl' % (setting, lang, data_format), 'wb')
+    pickle.dump(symbols2i, symbol_output)
     
     loss_func = nn.NLLLoss(ignore_index=PAD_index, reduce=False)
-    encoder = Encoder(input_size, EMBEDDING_SIZE,\
+    encoder = PhonologyEncoder(input_size, EMBEDDING_SIZE,\
                       HIDDEN_SIZE, bidirectional=True)
-    decoder = Decoder(HIDDEN_SIZE, EMBEDDING_SIZE,\
+    decoder = PhoneDecoder(HIDDEN_SIZE, EMBEDDING_SIZE,\
                       output_size, bidirectional_input=True)
     if use_cuda:
         encoder = encoder.cuda()
@@ -153,14 +155,6 @@ if __name__=='__main__':
              list(decoder.parameters())
     optimizer = torch.optim.SGD(params, lr=lr)
 
-    # Wrap both sets in EOS
-    pairs = [([EOS_symbol] + i + [EOS_symbol],\
-              [EOS_symbol] + o + [EOS_symbol])\
-             for i, o in data.pairs]
-    dev_pairs = [([EOS_symbol] + i + [EOS_symbol],\
-                  [EOS_symbol] + o + [EOS_symbol])\
-                 for i, o in dev_data.pairs]
-    
     train(pairs, dev_pairs, lang, setting, encoder,\
-          decoder, loss_func, optimizer, data_format, use_cuda,\
-          batch_size=batch_size, epochs=epochs, lr=lr, clip=clip)
+          decoder, char2i, loss_func, optimizer, data_format, 1,\
+          use_cuda, epochs=epochs, lr=lr, clip=clip)

@@ -1,4 +1,3 @@
-import torch
 from data import *
 
 import random
@@ -71,7 +70,53 @@ def predict(encoder, decoder, batch, vocab, use_cuda):
 
     return all_preds
 
+def featureEvaluate(encoder, decoder, char2i, pairs, use_cuda):
+    correct = 0
+    total = 0
+    i2char = {i: c for c, i in char2i.items()}
+    i=0
+    print_at = random.sample(range(1, 1000), 5)
+    for input_text, inp, output_text, out in pairs:
+        preds = featurePredict(encoder, decoder, inp, use_cuda)
+        targets = out
+        total+=1
+        if i in print_at:
+            print("===============")
+            print(input_text)
+            print(''.join([i2char[int(c)] for c in preds]))
+            print(output_text)
+            print(''.join([i2char[int(c)] for c in targets]))
+            print("===============")
 
+        i+=1
+        if targets.equal(preds):
+            correct += 1
+
+    return "Accuracy: %.2f %% \n" % (correct / total * 100)
+
+def featurePredict(encoder, decoder, inp, use_cuda):
+    enc_out, enc_hidden = encoder(inp)
+
+    decoder_input = Variable(torch.LongTensor([EOS_index]))
+
+    dec_hidden = decoder.init_hidden()
+
+    preds = [EOS_index]
+    for _ in range(enc_out.size()[0] * 3):
+        dec_out, dec_hidden = decoder(decoder_input,\
+                        dec_hidden, enc_out, use_cuda)
+
+        topv, topi = dec_out.data.topk(1)
+        # Get the index from the tensor as an integer
+        topi_int = topi[0][0][0]
+
+        preds.append(topi_int)
+        decoder_input = Variable(topi.view(1))
+        if topi_int == EOS_index:
+            break
+
+    return Variable(torch.LongTensor(preds))
+                                                                        
 if __name__=='__main__':
     char2i = pickle.load(open("./models/char2i.pkl", "rb"))
     label2i = pickle.load(open("./models/label2i.pkl", "rb"))
