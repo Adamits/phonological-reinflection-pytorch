@@ -4,7 +4,7 @@ import pickle
 
 from encoder import *
 from decoder import *
-from data import *
+from feature_data import *
 from evaluate import evaluate, featureEvaluate
 
 def train(pairs, dev_pairs, lang, setting, encoder, decoder, char2i,\
@@ -22,7 +22,7 @@ def train(pairs, dev_pairs, lang, setting, encoder, decoder, char2i,\
             # Returns tensors with the batch dims
             enc_out, enc_hidden =\
                     encoder(inp)
-            
+
             decoder_input = Variable(\
                     torch.LongTensor([EOS_index]))
             decoder_input = decoder_input.cuda()\
@@ -75,7 +75,7 @@ def train(pairs, dev_pairs, lang, setting, encoder, decoder, char2i,\
         eval_message = featureEvaluate(encoder, decoder, char2i,\
                                        dev_pairs, use_cuda)
         print(eval_message)
-        
+
         torch.save(encoder, "/home/adam/phonological-reinflection-pytorch/models/%s/encoder-%s-%s" % (setting, lang, data_format))
         torch.save(decoder, "/home/adam/phonological-reinflection-pytorch/models/%s/decoder-%s-%s" % (setting, lang, data_format))
 
@@ -105,7 +105,7 @@ if __name__=='__main__':
     lr = float(args.lr)
     clip = float(args.clip)
     use_cuda = args.gpu
-    
+
     EOS_index = 0
     EOS_symbol = "<EOS>"
     PAD_index = 1
@@ -113,7 +113,7 @@ if __name__=='__main__':
     UNK_index = 2
     EMBEDDING_SIZE = 100
     HIDDEN_SIZE = 100
-    
+
     data_format = "feature"
     data = DistinctiveFeatureData(args.fn, lang)
     dev_data = DistinctiveFeatureData(args.devfn, lang)
@@ -130,8 +130,8 @@ if __name__=='__main__':
                             data.examples, symbols2i, char2i)
     dev_pairs = DistinctiveFeatureData.encode_examples(\
                             dev_data.examples, symbols2i, char2i)
-    
-    # +1 for ' ' 
+
+    # +1 for ' '
     input_size = len(data.feature_vocab + data.symbol_vocab) + 1
     output_size = len(char2i.keys())
 
@@ -140,7 +140,7 @@ if __name__=='__main__':
 
     symbol_output = open('/home/adam/phonological-reinflection-pytorch/models/%s/symbols2i-%s-%s.pkl' % (setting, lang, data_format), 'wb')
     pickle.dump(symbols2i, symbol_output)
-    
+
     loss_func = nn.NLLLoss(ignore_index=PAD_index, reduce=False)
     encoder = PhonologyEncoder(input_size, EMBEDDING_SIZE,\
                       HIDDEN_SIZE, bidirectional=True)

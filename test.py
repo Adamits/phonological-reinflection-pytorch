@@ -5,6 +5,7 @@ import codecs
 
 from evaluate import predict, featurePredict
 from data import *
+from feature_data import DistinctiveFeatureData
 
 EOS_symbol = "<EOS>"
 EOS_index = 0
@@ -28,7 +29,7 @@ def replace_UNK(input_text, input_encoded, pred):
                 copy_count+=1
             else:
                 updated_pred.append(p)
-        
+
         return ''.join(updated_pred)
     else:
         return pred
@@ -86,14 +87,14 @@ def make_feature_predictions(pairs, encoder, decoder, char2i, outputfn,\
                      use_cuda=False):
     i2char = {c: i for i, c in char2i.items()}
     file_out = open(outputfn, "w")
-    
+
     for input_text, inp, output_text, out in pairs:
         pred = ''.join([i2char[int(c)] for c in\
                         featurePredict(encoder, decoder, inp, use_cuda)\
                         if int(c) != EOS_index])
-        
+
         # TODO When adding replace_UNK, probably need to account for whether EOS is there or not...
-        
+
         UNK_feature_vector = torch.zeros(inp.size()[1])
         UNK_feature_vector[symbols2i[UNK_symbol]] = 1
         pred = replace_UNK_feature(input_text, inp, pred,\
@@ -101,7 +102,7 @@ def make_feature_predictions(pairs, encoder, decoder, char2i, outputfn,\
 
         file_out.write(pred)
         file_out.write('\n')
-        
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("Test")
     parser.add_argument('testfn', metavar='testfn',\
