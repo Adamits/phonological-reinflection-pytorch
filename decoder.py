@@ -119,14 +119,19 @@ class Decoder(nn.Module):
 
 class PhoneDecoder(nn.Module):
     def __init__(self, hidden_size, embedding_size,\
-                     output_size, bidirectional_input=False):
+                 output_size, bidirectional_input=False,\
+                 concat_phone=False):
         super(PhoneDecoder, self).__init__()
         self.embedding_size = embedding_size
         self.hidden_size_input = hidden_size * 2 if\
                             bidirectional_input else\
                             hidden_size
+        # Potentially double again toa ccount for concatenated feats
+        self.hidden_size_input = self.hidden_size_input * 2 if\
+                                 concat_phone else self.hidden_size_input
         self.hidden_size = hidden_size
         self.output_size = output_size
+        self.concat_phone = concat_phone
         self.bidirectional_input = bidirectional_input
 
         # Hidden state whose parameters are shared across all examples

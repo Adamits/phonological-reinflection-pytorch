@@ -7,10 +7,12 @@ from decoder import *
 from data import *
 from evaluate import evaluate
 
-def train(pairs, dev_pairs, lang, setting, encoder, decoder, loss_function, optimizer, data_format, use_cuda, batch_size=100, epochs=20, lr=.01, clip=2):
+def train(pairs, dev_pairs, lang, lang_label, setting, encoder, decoder, loss_function, optimizer, data_format, use_cuda, batch_size=100, epochs=20, lr=.01, clip=2):
     random.shuffle(pairs)
     train_batches = get_batches(pairs, batch_size,\
                 char2i, PAD_symbol, use_cuda)
+    last_dev_acc = float("-inf")
+    
     for i in range(epochs):
         print("EPOCH: %i" % i)
         random.shuffle(train_batches)
@@ -76,11 +78,17 @@ def train(pairs, dev_pairs, lang, setting, encoder, decoder, loss_function, opti
         print("LOSS: %4f" % (sum(all_losses)/ \
                              len(all_losses)))
 
-        evaluate(encoder, decoder, char2i, dev_pairs,\
+        dev_acc = evaluate(encoder, decoder, char2i, dev_pairs,\
                  batch_size, PAD_symbol, use_cuda)
+        print("ACC: %.2f %% \n" % dev_acc)
         
-        torch.save(encoder, "/home/adam/phonological-reinflection-pytorch/models/%s/encoder-%s-%s" % (setting, lang, data_format))
-        torch.save(decoder, "/home/adam/phonological-reinflection-pytorch/models/%s/decoder-%s-%s" % (setting, lang, data_format))
+        # Overwrite saved model if dev acc is higher
+        if dev_acc > last_dev_acc:
+            print("saving ... /home/adam/phonological-reinflection-pytorch/models/%s/encoder-%s-%s" % (setting, lang_label, data_format))
+            torch.save(encoder, "/home/adam/phonological-reinflection-pytorch/models/%s/encoder-%s-%s" % (setting, lang_label, data_format))
+            torch.save(decoder, "/home/adam/phonological-reinflection-pytorch/models/%s/decoder-%s-%s" % (setting, lang_label, data_format))
+
+        last_dev_acc = dev_acc
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser("Train")
@@ -102,11 +110,19 @@ if __name__=='__main__':
                         'learning rate for the optimizer')
     parser.add_argument('clip', metavar='clip', help=\
                         'The gradient norm value at which to clip')
+    parser.add_argument('--i', nargs='?')
     parser.add_argument('--gpu', action='store_true',\
                         help='train on the gpu')
 
     args = parser.parse_args()
     lang = args.lang
+    if args.i is not None:
+        model_num = args.i
+        lang_label = lang + "-" + model_num
+    else:
+        model_num = None
+        lang_label = lang
+        
     setting = args.setting
     data_format = args.data_format
     if data_format == "text":
@@ -114,7 +130,7 @@ if __name__=='__main__':
         dev_data = Data(args.devfn)
     elif data_format == "phone":
         data = PhoneData(args.fn, lang)
-        dev_data = PhoneData(args.fn, lang)
+        dev_data = PhoneData(args.devfn, lang)
     elif data_format == "feature":
         raise Exception("unimplemented feature")
     epochs = int(args.epochs)
@@ -133,10 +149,10 @@ if __name__=='__main__':
 
     char2i = data.char2i
     input_size = output_size = len(char2i.keys())
-
+    print(char2i)
     char_output = open(\
         '/home/adam/phonological-reinflection-pytorch/models/%s/char2i-%s-%s.pkl' %\
-        (setting, lang, data_format), 'wb')
+        (setting, lang_label, data_format), 'wb')
     pickle.dump(char2i, char_output)
     
     loss_func = nn.NLLLoss(ignore_index=PAD_index, reduce=False)
@@ -160,7 +176,7 @@ if __name__=='__main__':
     dev_pairs = [([EOS_symbol] + i + [EOS_symbol],\
                   [EOS_symbol] + o + [EOS_symbol])\
                  for i, o in dev_data.pairs]
-    
-    train(pairs, dev_pairs, lang, setting, encoder,\
+
+    train(pairs, dev_pairs, lang, lang_label, setting, encoder,\
           decoder, loss_func, optimizer, data_format, use_cuda,\
           batch_size=batch_size, epochs=epochs, lr=lr, clip=clip)

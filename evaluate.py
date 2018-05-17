@@ -5,12 +5,14 @@ import pickle
 
 def evaluate(encoder, decoder, char2i, pairs,\
              batch_size, PAD_symbol, use_cuda):
+    i2char = {i: c for c, i in char2i.items()}
     correct = 0
     total = 0
     batches = get_batches(pairs, batch_size,\
                 char2i, PAD_symbol, use_cuda)
 
     random.shuffle(batches)
+    print_at = random.sample(range(1, len(batches)), 5)
     
     for i, batch in enumerate(batches):
         preds = predict(encoder, decoder,\
@@ -28,12 +30,14 @@ def evaluate(encoder, decoder, char2i, pairs,\
                   nonzero().data[1][0]
             total+=1
             # Print at an arbitrary point in the data
-            if False:
-                print("=======")
-                print("PREDS")
-                print(preds[:eos+1,j])
-                print("TARGETS")
-                print(targets[:target_lengths[j],j])
+            if i in print_at:
+                #print("=======")
+                #print("PREDS")
+                #print(''.join([i2char[int(p)] for p in preds[:eos+1,j]]))
+                #print("TARGETS")
+                #print(''.join([i2char[int(t)] for t in\
+                #               targets[:target_lengths[j],j]]))
+                None
 
             # Cut off pred at 2nd EOS
             equal = targets[:target_lengths[j], j]\
@@ -41,7 +45,7 @@ def evaluate(encoder, decoder, char2i, pairs,\
             if equal:
                 correct += 1
 
-    print("Accuracy: %.2f %% \n" % (correct / total * 100))
+    return (correct / total * 100)
 
 def predict(encoder, decoder, batch, vocab, use_cuda):
     enc_out, enc_hidden = encoder(\
@@ -70,14 +74,20 @@ def predict(encoder, decoder, batch, vocab, use_cuda):
 
     return all_preds
 
-def featureEvaluate(encoder, decoder, char2i, pairs, use_cuda):
+def featureEvaluate(encoder, decoder, char2i, pairs, use_cuda,\
+                    phonePairs=None, phoneChar2i=None):
     correct = 0
     total = 0
     i2char = {i: c for c, i in char2i.items()}
     i=0
     print_at = random.sample(range(1, 1000), 5)
-    for input_text, inp, output_text, out in pairs:
-        preds = featurePredict(encoder, decoder, inp, use_cuda)
+    for p, data in enumerate(pairs):
+        input_text, inp, output_text, out = data
+        phone_in = None
+        if phonePairs is not None:
+            phone_in, phone_out = phonePairs[p]
+        preds = featurePredict(encoder, decoder, inp,\
+                               use_cuda, phone_in=phone_in)
         targets = out
         total+=1
         if i in print_at:
@@ -92,10 +102,13 @@ def featureEvaluate(encoder, decoder, char2i, pairs, use_cuda):
         if targets.equal(preds):
             correct += 1
 
-    return "Accuracy: %.2f %% \n" % (correct / total * 100)
+    return (correct / total * 100)
 
-def featurePredict(encoder, decoder, inp, use_cuda):
-    enc_out, enc_hidden = encoder(inp)
+def featurePredict(encoder, decoder, inp, use_cuda, phone_in=None):
+    if phone_in is not None:
+        enc_out, enc_hidden = encoder(inp, phone_in)
+    else:
+        enc_out, enc_hidden = encoder(inp)
 
     decoder_input = Variable(torch.LongTensor([EOS_index]))
 

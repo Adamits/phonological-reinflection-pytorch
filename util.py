@@ -1,5 +1,17 @@
 def get_phones(epi, text):
+  """
+  Returns a list of IPA segments
+  * Note that one IPA segment may span several unicode chars.
+  """
   phones = epi.transliterate(text)
+  return phones
+
+def get_phone_segments(epi, text):
+  """
+  Returns a list of IPA segments                                                                   
+  * Note that one IPA segment may span several unicode chars.
+  """
+  phones = epi.trans_list(text)
   return phones
 
 def get_lookup():

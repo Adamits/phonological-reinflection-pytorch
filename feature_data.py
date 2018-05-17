@@ -6,12 +6,13 @@ import numpy as np
 
 import epitran
 import panphon
-from util import lang2ISO, get_phones
+from util import lang2ISO, get_phones, get_phone_segments
 
 EOS="<EOS>"
 EOS_index = 0
 UNK_symbol = "@"
 UNK_index = 1
+UNK_tag_symbol = "?"
 
 class DistinctiveFeatureData:
     """
@@ -40,7 +41,8 @@ class DistinctiveFeatureData:
         benefit from knowledge of the 0, not-applicable setting.***
 
     """
-    def __init__(self, fn, lang):
+    def __init__(self, fn, lang, segment_phone=True, include_phone=False,\
+                 concat_phone=False):
         """
         We need an output dicitonary mapping each phoneme
         to a unique ID for the decoding portion
@@ -56,12 +58,16 @@ class DistinctiveFeatureData:
         """
         self.fn = fn
         self.lang = lang
+        self.include_phone = include_phone
+        # Need segments in order to include phone features
+        self.segment_phone = True if include_phone else segment_phone
+        self.segment_phone = True if concat_phone else segment_phone
         self.epi = epitran.Epitran(lang2ISO(lang))
         self.ft = panphon.FeatureTable()
         self.feature_vocab = self.ft.names
         self.examples, self.tags, self.char_vocab =\
                                         self._prepare_data()
-        self.symbol_vocab = [EOS, UNK_symbol] + self.tags
+        self.symbol_vocab = [EOS, UNK_symbol, UNK_tag_symbol] + self.tags
         # Compute indices at which each tag should have 1
         # in the tag one-hot feature vector
         # Note that we do not subtract 1 from feature_vocab
@@ -74,7 +80,11 @@ class DistinctiveFeatureData:
         # i+2 to account for EOS and UNK at 1 and 0
         self.char2i.update({c: i+2 for i, c in
                         enumerate(self.char_vocab)})
-
+    def _get_phones(self, epi, text):
+        if self.segment_phone:
+            return get_phone_segments(epi, text)
+        else:
+            return get_phones(epi, text)    
 
     def _read_data(self, fn):
         """
@@ -86,8 +96,9 @@ class DistinctiveFeatureData:
              file:
             lines = [l.strip().split('\t') for l in\
                      file]
-            triples = [(get_phones(self.epi, lemma),\
-                    tags.split(";"), get_phones(self.epi, wf))\
+            # Lowercase the words to conform e.g. acronyms (DJ)
+            triples = [(self._get_phones(self.epi, lemma.lower()),\
+                    tags.split(";"), self._get_phones(self.epi, wf.lower()))\
                     for lemma, wf, tags in lines]
 
             return triples
@@ -102,56 +113,78 @@ class DistinctiveFeatureData:
             for tag in tags:
                 if tag not in tag_vocab:
                     tag_vocab.append(tag)
-            for c in list(lemma) + list(wf):
+            for c in lemma + wf:
                 if c not in char_vocab:
                     char_vocab.append(c)
-            # A triple of [feature vectors, ...], tag list,
-            # word form char list
-            examples.append((lemma + ";" + ";".join(tags)\
-                             , self.extract_features_array(\
-                                    lemma), tags, wf))
+            # A 5tuple of full inputs, phone lemmas,
+            # [feature vectors, ...], tag list, word form char list
+            features = self.extract_features_array(lemma)
+            if features is not None:
+                examples.append((''.join(lemma) + ";" + ";".join(tags)\
+                                 , lemma, features, tags, wf))
+            else:
+                print("ignoring %s, %s, %s, could not transliterate"\
+                      % (lemma, tags, wf))
 
         return (examples, tag_vocab, char_vocab)
-
 
     def extract_features_array(self, phones):
         # Get the index of all spaces - need to
         # TODO: change to get indices of spaecs between SEGMENTS
-        phone_words = phones.split(' ')
-        segments = [self.ft.word_array(self.feature_vocab,\
-                                       pw) for pw in phone_words]
+        # phone_words, space_indices =\
+        #                get_phone_words_and_space_indices(phones)
+
+        #segments = [self.ft.word_array(self.feature_vocab,\
+        #                               pw) for pw in phone_words]
         # This will find the index for every space in the phones input,
         # In terms of the # of segments (ft model ignores spaces).
         # Each index is actually i less than its true index
         # In order to account for the nature of np.insert
         # With a vector of indices.
         # (e.g inserting at [1, 3, 5] will insert at 1+0, 3+1, 5+2, etc.)
-        space_indices = [sum([len(s) for s in segments[:i+1]])\
-                         for i, seg in enumerate(segments)][:-1]
+        # space_indices = [sum([len(s) for s in segments[:i+1]])\
+        #                 for i, seg in enumerate(segments)][:-1]
+        # Need to also store hyphen indices since panphon ignores hyphens
+        # hyphen_indices = [i for i, p in enumerate(phones) if p == "-"]
+        feature_vecs = np.zeros((len(phones),\
+                                 len(self.feature_vocab) + 2))
+        for i, phone_seg in enumerate(phones):
+            # make ' ' vector
+            if phone_seg == ' ':
+                # Add two 0's to the end of each feature vector
+                # for a one-hot slot for ' ' and '-'
+                f = np.zeros((len(self.feature_vocab) + 2))
+                f[-2] = 1
+            # make '-' vector
+            elif phone_seg == '-':
+                # Add two 0's to the end of each feature vector
+                # for a one-hot slot for ' ' and '-'
+                f = np.zeros((len(self.feature_vocab) + 2))
+                f[-1] = 1
+            # Otherwise we should have a phone segment from which
+            # we can extract phonlogical features
+            else:
+                f = self.ft.word_array(self.feature_vocab,\
+                                        phone_seg)
+                # For non phone symbols, e.g. numerals (English has '86')
+                # Or untransliterable symbols, e.g. "DJ"
+                if f.size < 1:
+                    print("cannot get features from %s in %s, making 0 vector..." % (phone_seg, phones))
+                    print(f)
+                    # Just a vector of 0's, a phone one-hot will be appended later
+                    f = np.zeros((len(self.feature_vocab) + 2))
+                else:
+                    f = np.append(f[0], np.zeros(2))
+                
+            # Change all -1 features in the np array to 0
+            f[f < 0] = 0
 
-        f = self.ft.word_array(self.feature_vocab,\
-                                      phones)
+            feature_vecs[i, :] = f
 
-        # Change all -1 features in the np array to 0
-        f[f < 0] = 0
-        # Add a 0 to the end of each feature vector in the
-        # np array, in order to account for a blank space (' ')
-        # feature
-        f = np.insert(f, len(f[0]), [0], axis=1)
-
-        # Add a vector of 0's for space at each space index
-        f = np.insert(f, space_indices, [0], axis=0)
-
-        # Update the last feature of each space vector
-        # to be 1, to show the 'space-feature' is active.
-        # Need this list comprehension jere to get the index
-        # Of the now adusted f matrix correct.
-        f[[s + i for i, s in enumerate(space_indices)], -1] = 1
-
-        return f
+        return feature_vecs
 
     @classmethod
-    def encode_examples(cls, examples, symbols2i, char2i):
+    def encode_examples(cls, examples, symbols2i, char2i, include_phone=False):
         """
         After building the examples, we need to add to each
         feature vector to include tags and extra symbols.
@@ -162,36 +195,64 @@ class DistinctiveFeatureData:
         """
         pairs = []
 
-        for input_text, feats, tags, out in examples:
+        for input_text, input_phones, feats, tags, out in examples:
             # Need to make vectors in feats of the
             # full length, given new features
             f = np.append(feats,\
                 np.zeros((len(feats), len(symbols2i))), axis=1)
+            
+            # If we are including phone features, then
+            # We need to also extend the feature matrix with these binary features
+            if include_phone:
+                # phone sequence x all_potential_phones
+                phone_features = np.zeros((f.shape[0], len(char2i.keys())))
+                
+                # Need the phones for lookup
+                #print(input_phones)
+                #print(len(input_phones), feats.shape)
+                #print([char2i.get(p, UNK_index) for p in input_phones])
+                for i, p in enumerate(input_phones):
+                    if char2i.get(p, UNK_index) == UNK_index:
+                        print("%s UNKNOWN" % p)
+                    phone_features[i, char2i.get(p, UNK_index)] = 1
+                
+                # Concat the phone feature additions to the f vector
+                f = np.concatenate((f, phone_features), axis=1)
 
+            
             # tags x tag 'features' (including EOS 'feature')
             tags_matrix = np.zeros((len(tags), len(symbols2i)))
             for i, t in enumerate(tags):
-                tags_matrix[i, symbols2i[t]] = 1
+                tags_matrix[i, symbols2i.get(t, symbols2i[UNK_tag_symbol])] = 1
 
             # Add a matrix of 0's to the front of each tag
             # vector in order to account for all other features
-            tags_matrix = np.append(np.zeros((tags_matrix.shape[0],\
-                                feats.shape[1])), tags_matrix, axis=1)
+            tags_zeros_len = feats.shape[1]
+            # Need to account for all the phone features if
+            # that setting is enabled
+            if include_phone:
+                tags_zeros_len += len(char2i.keys())
 
-            EOS_vector = np.zeros((1, f.shape[1]))
+            tags_matrix = np.append(np.zeros((tags_matrix.shape[0],\
+                                tags_zeros_len)), tags_matrix, axis=1)
+
+            EOS_vector = np.zeros((1, len(symbols2i)))
             EOS_vector[0, symbols2i[EOS]] = 1
+            EOS_vector = np.append(np.zeros((1, tags_zeros_len)),\
+                                   EOS_vector, axis=1)
 
             # Put them all together to make the full sequence matrix
             inp = np.append(f, tags_matrix, axis=0)
             inp = np.append(inp, EOS_vector, axis=0)
             inp = np.append(EOS_vector, inp, axis=0)
+            #print(inp)
 
             i_tensor = Variable(torch.FloatTensor(inp))
             o_tensor = Variable(torch.LongTensor(\
             [char2i[EOS]] + [char2i.get(o, UNK_index) for o in out] +\
                                         [char2i[EOS]]))
             input_text = EOS + input_text + EOS
-            out = EOS + out + EOS
+            out = EOS + ''.join(out) + EOS
 
             # Add the tuple to the pairs list
             pairs.append((input_text, i_tensor,\

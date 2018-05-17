@@ -1,0 +1,11 @@
+#! /bin/bash
+
+ROOT=~/phonological-reinflection-pytorch
+
+for l in english german hindi hungarian persian polish russian spanish; do
+    python "$ROOT"/test.py "$ROOT"/data/"$l"-uncovered-test "$ROOT"/preds "$ROOT"/models/low/encoder-"$l"-text "$ROOT"/models/low/decoder-"$l"-text "$ROOT"/models/low/char2i-"$l"-text.pkl "$l" low text 1
+done;
+
+for l in english german hindi hungarian persian polish russian spanish; do
+    python "$ROOT"/evalm.py --gold "$ROOT"/data/"$l"-uncovered-test --guess "$ROOT"/preds/"$l"--text-preds-low --lang "$l"
+done;

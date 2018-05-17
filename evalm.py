@@ -41,19 +41,27 @@ def read(fname):
 
     return words
 
-def eval_form(gold, guess, lang, is_phone, ignore=set()):
+def eval_form(gold, guess, lang, is_phone, print_d, ignore=set()):
     """ compute average accuracy and edit distance for task 1 """
     if is_phone:
         epi = epitran.Epitran(lang2ISO(lang))
+        
     correct, dist, total = 0., 0., 0.
     for i, gold_word in enumerate(gold):
         gold_word = gold_word.split("\t")[1]
-        # Convert to phones
-        gold_word = get_phones(epi, gold_word)
+        
+        if is_phone:
+            # Convert to phones
+            gold_word = ''.join(get_phones(epi, gold_word))
+            
         if gold_word == guess[i].strip():
             correct += 1
+        elif print_d:
+            print(gold_word,"----",  guess[i].strip())
+            
         dist += distance(guess[i].strip(), gold_word)
         total += 1
+        
     return (round(correct/total*100, 2), round(dist/total, 2))
 
 if __name__ == "__main__":
@@ -64,11 +72,13 @@ if __name__ == "__main__":
     parser.add_argument("--lang", help="Language being tested")
     parser.add_argument("--phone", action="store_true",\
                         help="Should gold be converted to phones")
+    parser.add_argument("--print_disagreement", action="store_true")
     args = parser.parse_args()
 
     gold = read(args.gold)
     guess = read(args.guess)
     lang = args.lang
     is_phone = args.phone
+    print_disagreement = args.print_disagreement
 
-    print("acccuracy: {0:.2f} levenshtein: {1:.2f}".format(*eval_form(gold, guess, lang, is_phone)))
+    print("{0:.2f}\t{1:.2f}".format(*eval_form(gold, guess, lang, is_phone, print_disagreement)))

@@ -1,0 +1,13 @@
+import argparse
+import pickle
+from data import PhoneData
+
+data_format = "feature_concat"
+
+if __name__=='__main__':
+    parser.add_argument('fn', metavar='fn')
+    parser.add_argument('lang', metavar='lang')
+
+    for setting in ["low", "medium"]:
+        phone_output =open('/home/adam/phonological-reinflection-pytorch/mdels/%s/phonechar2i-%s-%s.pkl' % (setting, lang, data_format), 'wb')
+        pickle.dump(phoneChar2i, phone_output)

@@ -6,7 +6,7 @@ import numpy as np
 
 import epitran
 import panphon
-from util import lang2ISO, get_phones
+from util import lang2ISO, get_phones, get_phone_segments
 
 EOS="<EOS>"
 EOS_index = 0
@@ -51,22 +51,41 @@ class Data:
 
 
 class PhoneData(Data):
-    def __init__(self, fn, lang):
+    def __init__(self, fn, lang, segment_phone=False):
         self.fn = fn
         self.epi = epitran.Epitran(lang2ISO(lang))
+        self.segment_phone = segment_phone
         super(PhoneData, self).__init__(self.fn)
 
+    def _get_phones(self, epi, text):
+        if self.segment_phone:
+            return get_phone_segments(epi, text)
+        else:
+            return list(get_phones(epi, text))
+        
     def _read_data(self, fn):
         with codecs.open(fn, "r", encoding='utf-8') as\
              file:
             lines = [l.strip().split('\t') for l in\
                  file]
-            pairs = [(list(get_phones(self.epi, lemma)) +\
-                      tags.split(";"),list(get_phones(self.epi, wf)))\
+            pairs = [(self._get_phones(self.epi, lemma.lower()) +\
+                      tags.split(";"), self._get_phones(self.epi, wf.lower()))\
                      for lemma, wf, tags in lines]
 
         return pairs
 
+    def tensor_pairs(self, char2i):
+        tensor_pairs = []
+        for inp, out in self.pairs:
+            eos_inp = [char2i.get(c, UNK_index) for\
+                         c in [EOS] + inp + [EOS]]
+            eos_out = [char2i.get(c, UNK_index) for\
+                       c in [EOS] + out + [EOS]]
+            i_tensor = Variable(torch.LongTensor(eos_inp))
+            o_tensor = Variable(torch.LongTensor(eos_out))
+            tensor_pairs.append((i_tensor, o_tensor))
+
+        return tensor_pairs
 
 class Batch(object):
     def __init__(self, pairs, symbol):
@@ -121,6 +140,11 @@ class Batch(object):
         for i, o in enumerate(self.outputs):
             ids = [char2i.get(c, UNK_index) \
                    for c in o]
+
+            for c in o:
+                if char2i.get(c, UNK_index) == UNK_index:
+                    print("Unknown from output variable: %s" % c)
+                
             # Pad the difference with symbol
             ids = ids + [char2i[self.symbol]] *\
                   (self.max_length_out - len(o))
