@@ -1,3 +1,5 @@
 data/*
 models/*
+preds/*
+exp2models/
 *.pyc
